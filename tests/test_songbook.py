@@ -1,4 +1,4 @@
-from ovos_skill_karaoke.songbook import Entry, find, local_songs, online_songs, short_title
+from ovos_skill_karaoke.songbook import Entry, find, local_songs, online_songs, search, short_title
 
 
 def test_shipped_songs_listed():
@@ -27,3 +27,18 @@ def test_online_index():
     e = online_songs("https://example.org/songbook", fetch)
     assert e[0].url == "https://example.org/songbook/a.kar" and e[0].where == "online"
     assert online_songs("https://x", lambda u: (_ for _ in ()).throw(OSError())) == []
+
+
+def test_languages_are_one_song():
+    e = local_songs([])
+    assert find("hej emkay", e, "da-dk").path.name == "hey_emkay.da.kar"
+    assert find("hey emkay", e, "da-dk").path.name == "hey_emkay.da.kar"
+    assert find("hey emkay", e, "en-us").path.name == "hey_emkay.kar"
+    assert find("hey emkay", e, "ja-jp").path.name == "hey_emkay.kar"     # no Japanese: English
+
+
+def test_search_by_tag_and_words():
+    e = local_songs([])
+    assert short_title(search("something for bedtime", e, "en")[0].title) == "Goodnight from Emkay"
+    assert short_title(search("a song about the moon", e, "en")[0].title) == "Goodnight from Emkay"
+    assert short_title(search("noget til fest", e, "da")[0].title) == "Hej Emkay"

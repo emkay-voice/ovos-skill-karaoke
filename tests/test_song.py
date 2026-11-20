@@ -6,9 +6,10 @@ from ovos_skill_karaoke.song import kar_words_track, load
 
 
 def test_shipped_songs_read(kar):
-    for name in ("daisy_bell", "hey_emkay", "jingle_bells"):
+    for name in ("daisy_bell", "hey_emkay", "jingle_bells", "emkay_rock", "goodnight_emkay",
+                 "offline_island", "hey_emkay.da", "hey_emkay.eu"):
         s = load(kar(name))
-        assert s.title and s.language == "en"
+        assert s.title and s.language == (name.split(".")[1] if "." in name else "en")
         assert s.melody_track == 2                    # found, not told
         assert len(s.syllables) > 40
         assert all(syl.notes for syl in s.syllables)  # every syllable has its note
@@ -26,6 +27,8 @@ def test_words_and_lines(kar):
 def test_chords_found_from_the_band(kar):
     s = load(kar("jingle_bells"))
     assert [c.name for c in s.chords] == ["G", "C", "G", "A7", "D7", "G", "C", "G", "D7", "G"]
+    s = load(kar("goodnight_emkay"))     # 6/8, a music box doubling the melody
+    assert [c.name for c in s.chords][:4] == ["F", "C", "Bb", "F"]
 
 
 def test_a_foreign_kar_file():

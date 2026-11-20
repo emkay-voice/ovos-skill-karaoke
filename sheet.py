@@ -122,3 +122,24 @@ def line_text(line: list[Syllable]) -> str:
     for s in line:
         out += (" " if s.word_start and out else "") + s.text
     return out
+
+
+STYLE_COLOURS = {"disco": "#ff66cc", "rock": "#ff5544", "reggae": "#44cc66", "lullaby": "#8899ff",
+                 "christmas": "#ee3344", "waltz": "#ffcc33"}
+
+
+def card(title: str, tags=()) -> str:
+    """A square tile for a song in a list: its title on a colour of its kind."""
+    colour = next((c for t, c in STYLE_COLOURS.items() if any(t in x for x in tags)), CHORD)
+    words, lines = title.split(), [""]
+    for w in words:                                  # wrap at ~12 characters
+        if lines[-1] and len(lines[-1]) + len(w) > 12:
+            lines.append("")
+        lines[-1] = (lines[-1] + " " + w).strip()
+    y0 = 200 - (len(lines) - 1) * 26
+    text = "".join(f'<text x="200" y="{y0 + i * 52}" font-size="44" font-weight="bold" '
+                   f'text-anchor="middle" font-family="sans-serif" fill="{BG}">{escape(ln)}</text>'
+                   for i, ln in enumerate(lines))
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">'
+           f'<rect width="400" height="400" rx="60" fill="{colour}"/>{text}</svg>')
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")

@@ -18,16 +18,23 @@ in a browser, where it was made.
 ## Usage
 ```
 "sing Daisy Bell"                   the device sings
-"sing a song"
 "karaoke Jingle Bells"              you sing
 "start karaoke"
 "what songs can you sing"
+"find a song about christmas"       by title, kind or words of the song
+"can you sing a song?"              it's shy - say "come on"
 "stop"
 
-"syng Daisy Bell"                   (Danish)
-"karaoke Jingle Bells"
-"hvilke sange kan du synge"
+"syng Hej Emkay"                    (Danish)
+"find en sang om sommer"
+"kan du synge en sang?"
 ```
+
+Asked to sing just *a* song, it is a little shy at first - "Oh no, you'll
+just laugh at me" - until you encourage it. Then: "I'm a bit nervous about
+my voice, but here goes nothing", and afterwards "thank you for listening"
+or "now you try" - lines from Mycroft's own singing skill, which the Mark 1
+demo used to sing every two minutes.
 
 The first time a song is asked for, it takes a few seconds to get ready (the
 device says it is warming up its voice); after that it starts at once.
@@ -37,14 +44,27 @@ device says it is warming up its voice); after that it starts at once.
 | Song | | |
 |---|---|---|
 | Daisy Bell (Bicycle Built for Two) | waltz | ships with the skill |
-| Hey Emkay | disco | ships with the skill |
+| Hey Emkay | disco | ships with the skill, in 10 languages |
+| Goodnight from Emkay | lullaby | ships with the skill |
+| Emkay Rock | rock'n'roll | online songbook |
+| Offline Island | reggae | online songbook |
 | Jingle Bells | sleigh ride | online songbook |
 
 *Daisy Bell* (Harry Dacre, 1892) was the first song a computer ever sang -
 an IBM 7094 in 1961, the song HAL sings in *2001: A Space Odyssey*. *Jingle
-Bells* is James Lord Pierpont's (1857). Both are in the public domain;
-*Hey Emkay* is new, written for this songbook. All three arrangements are
-the songbook's own and free to use (CC0).
+Bells* is James Lord Pierpont's (1857). Both are in the public domain; the
+Emkay songs are new, written for this songbook. All arrangements are the
+songbook's own and free to use (CC0).
+
+### In other languages
+
+A song can come in several languages - `hey_emkay.kar`, `hey_emkay.da.kar`,
+... - and they count as one song: the device sings the version in its own
+language, or English when there is none. *Hey Emkay* is in English, Danish,
+German, Spanish, French, Italian, Dutch, Portuguese, Catalan and Basque - the
+languages Emkay speaks. They are singable rewrites rather than translations
+(same melody, a syllable per note); corrections from native speakers are
+very welcome.
 
 ### Your own songs
 
@@ -146,6 +166,13 @@ pip install ovos-skill-karaoke
 ## Development
 
 See [DEVELOPMENT.md](DEVELOPMENT.md).
+
+## Searching
+
+"find a song about christmas", "do you have a song about the moon", "find a
+reggae song": the skill looks through the titles, the tags (`@Itags:` in a
+.kar file, `tags` in the songbook) and the words of the songs, shows what it
+found as tiles on the screen and asks which one to sing.
 
 ## Category
 **Entertainment**

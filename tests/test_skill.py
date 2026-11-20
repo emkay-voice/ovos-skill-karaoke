@@ -25,6 +25,13 @@ def skill(tmp_path, monkeypatch, speak):
                         MagicMock(render=lambda name, data: "and"), raising=False)
     s.status = MagicMock()
     s.audio_service = MagicMock()
+    s.get_response = MagicMock(return_value=None)
+    s.ask_yesno = MagicMock(return_value=None)
+
+    def voc_match(utt, name, lang=None, exact=False):
+        words = (ROOT / "locale" / "en-us" / f"{name}.voc").read_text().splitlines()
+        return any(w and w in (utt or "").lower() for w in words)
+    s.voc_match = voc_match
     s.speak_dialog = MagicMock()
     s._singer = lambda: Singer(speak, "en")
     s.initialize()
@@ -80,3 +87,44 @@ def test_locales_match():
     for name in ("sing.intent", "karaoke.intent"):
         for lang in ("en-us", "da-dk"):
             assert all("{song}" in ln for ln in (ROOT / "locale" / lang / name).read_text().splitlines() if ln)
+
+
+def test_shy_then_sings_when_encouraged(skill):
+    skill.get_response.return_value = "oh come on"
+    skill.handle_sing_any(MagicMock(data={}))
+    assert skill.get_response.call_args[0][0] == "shy"
+    assert [c[0][0] for c in skill.speak_dialog.call_args_list][:2] == ["okay_then", "warming_up"]
+    assert skill.audio_service.play.called
+
+
+def test_shy_and_stays_shy(skill):
+    skill.get_response.return_value = "no it's fine"
+    skill.handle_sing_any(MagicMock(data={}))
+    skill.speak_dialog.assert_called_with("maybe_later")
+    assert not skill.audio_service.play.called
+
+
+def test_not_shy_right_after_singing(skill):
+    skill._last_sung = time.time()
+    skill.handle_sing_any(MagicMock(data={}))
+    assert not skill.get_response.called and skill.audio_service.play.called
+
+
+def test_find_a_song(skill):
+    skill.ask_yesno.return_value = "yes"
+    skill.handle_find(MagicMock(data={"query": "bedtime"}))
+    assert skill.ask_yesno.call_args[0][1] == {"song": "Goodnight from Emkay"}
+    skill.gui.show_page.assert_any_call("SYSTEM_grid", override_idle=60)
+    assert skill.audio_service.play.call_args[0][0][0].title == "Goodnight from Emkay"
+
+
+def test_find_many_and_pick_one(skill):
+    skill.get_response.return_value = "the disco one"
+    skill.handle_find(MagicMock(data={"query": "emkay"}))
+    assert skill.get_response.call_args[0][0] == "found_many"
+    assert skill.audio_service.play.call_args[0][0][0].title == "Hey Emkay"
+
+
+def test_nothing_found(skill):
+    skill.handle_find(MagicMock(data={"query": "submarines"}))
+    skill.speak_dialog.assert_called_with("no_match", {"query": "submarines"})

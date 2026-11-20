@@ -244,39 +244,96 @@ CHORD_SHAPES = {"": (0, 4, 7), "m": (0, 3, 7), "7": (0, 4, 7, 10), "maj7": (0, 4
 NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"]
 
 
-def detect_chords(tracks, melody_idx, length, step):
-    """Name the harmony every `step` seconds from the accompaniment's
-    notes; the lowest note counts extra (it is usually the root)."""
-    notes = [n for i, ns in tracks.items() if i != melody_idx for n in ns]
+def _doubles_melody(notes, melody, tol=0.03) -> bool:
+    """A track that mostly plays the melody (a glockenspiel or a music box
+    doubling it) is not harmony."""
+    if not melody or not notes:
+        return False
+    starts = {}
+    for m in melody:
+        starts.setdefault(round(m.start / tol), set()).add(m.pitch % 12)
+
+    def doubled(n):
+        k = round(n.start / tol)
+        return any(n.pitch % 12 in starts.get(k + d, ()) for d in (-1, 0, 1))
+    same = sum(1 for n in notes if doubled(n))
+    return same / len(notes) > 0.6
+
+
+def _weights(notes, t0, t1):
+    w, low = [0.0] * 12, None
+    for n in notes:
+        ov = min(n.end, t1) - max(n.start, t0)
+        if ov > 0:
+            w[n.pitch % 12] += ov
+            if low is None or n.pitch < low:
+                low = n.pitch
+    return w, low
+
+
+def _fit(w, low, root, shape):
+    """How well chord (root, shape) explains the weights w."""
+    top = max(w)
+    tones = [(root + x) % 12 for x in shape]
+    inn = sum(w[x] for x in tones)
+    missing = sum(max(0.0, 0.35 * top - w[x]) for x in tones)
+    sc = inn - 1.5 * (sum(w) - inn) - 1.2 * missing - 0.05 * len(shape) * top
+    return sc + (0.8 * top if low is not None and low % 12 == root else 0.0)
+
+
+def _best(w, low):
+    if max(w) <= 0:
+        return None, 0.0
+    return max(((NAMES[r] + q, _fit(w, low, r, sh)) for r in range(12)
+                for q, sh in CHORD_SHAPES.items()), key=lambda x: x[1])
+
+
+def _tones(name):
+    root = NAMES.index(name[:2] if name[1:2] in ("#", "b") else name[:1])
+    return root, CHORD_SHAPES[name[len(NAMES[root]):]]
+
+
+def _named_fit(w, low, name):
+    root, shape = _tones(name)
+    return _fit(w, low, root, shape)
+
+
+def _extends(own, whole):
+    """own holds all of whole's tones (C -> Am7 = C6, G -> Gmaj7)."""
+    (r1, s1), (r2, s2) = _tones(own), _tones(whole)
+    return {(r2 + x) % 12 for x in s2} <= {(r1 + x) % 12 for x in s1}
+
+
+def detect_chords(tracks, melody_idx, length, bar, split=True):
+    """Name the harmony bar by bar from the accompaniment's notes (the lowest
+    note counts extra, it is usually the root). In even meters a half bar
+    gets its own chord only when the bar's chord clearly doesn't fit it -
+    so a walking or boogie bass doesn't make the chord flicker."""
+    melody = tracks.get(melody_idx, [])
+    notes = [n for i, ns in tracks.items()
+             if i != melody_idx and not _doubles_melody(ns, melody) for n in ns]
     if not notes:
         return []
     out, t = [], 0.0
+
+    def add(time, name):
+        if name and (not out or out[-1].name != name):
+            out.append(Chord(time, name))
     while t < length:
-        w = [0.0] * 12
-        low = None
-        for n in notes:
-            ov = min(n.end, t + step) - max(n.start, t)
-            if ov > 0:
-                w[n.pitch % 12] += ov
-                if low is None or n.pitch < low:
-                    low = n.pitch
-        top = max(w)
-        if top > 0:
-            best, score = None, -1e9
-            for root in range(12):
-                for q, shape in CHORD_SHAPES.items():
-                    tones = [(root + x) % 12 for x in shape]
-                    inn = sum(w[x] for x in tones)
-                    outn = sum(w) - inn
-                    missing = sum(max(0.0, 0.35 * top - w[x]) for x in tones)
-                    sc = inn - 1.5 * outn - 1.2 * missing - 0.05 * len(shape) * top
-                    if low is not None and low % 12 == root:
-                        sc += 0.4 * top
-                    if sc > score:
-                        best, score = NAMES[root] + q, sc
-            if not out or out[-1].name != best:
-                out.append(Chord(t, best))
-        t += step
+        whole, _ = _best(*_weights(notes, t, t + bar))
+        if split and whole:
+            halves = []
+            for h0 in (t, t + bar / 2):
+                w, low = _weights(notes, h0, h0 + bar / 2)
+                own, own_sc = _best(w, low)
+                keep = (own is None or _extends(own, whole)
+                        or _named_fit(w, low, whole) >= own_sc - 0.25 * max(w))
+                halves.append((h0, whole if keep else own))
+            for h0, name in halves:
+                add(h0, name)
+        else:
+            add(t, whole)
+        t += bar
     return out
 
 
@@ -298,24 +355,28 @@ def load(data: bytes, title: str = "", language: str = "") -> Song:
     if mel is not None:
         _assign_notes(syllables, _top_line(tracks[mel]))
     beat = 60.0 / mido.tempo2bpm(tmap[-1][2])
-    meter = next((m.numerator for tr in mid.tracks for m in tr if m.type == "time_signature"), 4)
-    # chords usually change per bar or half bar: name them per half bar in
-    # even meters, per bar in odd ones (3/4)
-    step = beat * (meter / 2 if meter % 2 == 0 else meter)
+    num, den = next(((m.numerator, m.denominator) for tr in mid.tracks for m in tr
+                     if m.type == "time_signature"), (4, 4))
+    meter = num * 4 / den                       # bar length in quarter notes
+    # two halves in 2/4, 4/4, 6/8, 12/8 - not in 3/4
+    split = num % 2 == 0
     length = mid.length
-    chords = detect_chords(tracks, mel, length, step)
+    chords = detect_chords(tracks, mel, length, beat * meter, split)
     lang = {"en": "en", "eng": "en", "da": "da", "dan": "da"}.get(language[:3], language[:2] or "en")
     return Song(title or "", lang, syllables, chords, mid, mel, length)
 
 
 # ------------------------------------------------------------------ writing
-def kar_words_track(syllables_ticks, title: str, language: str, credits: str = ""):
-    """A Soft Karaoke "Words" track: [(tick, text, word_start, line_start, verse_start)]."""
+def kar_words_track(syllables_ticks, title: str, language: str, credits: str = "", tags=()):
+    """A Soft Karaoke "Words" track: [(tick, text, word_start, line_start, verse_start)].
+    Tags go in an @I (information) line: "@Itags: christmas, winter"."""
     tr = mido.MidiTrack()
     tr.append(mido.MetaMessage("track_name", name="Words", time=0))
     head = ["@KMIDI KARAOKE FILE", "@V0100", f"@L{language.upper()[:4]}", f"@T{title}"]
     if credits:
         head.append(f"@T{credits}")
+    if tags:
+        head.append("@Itags: " + ", ".join(tags))
     for h in head:
         tr.append(mido.MetaMessage("text", text=h, time=0))
     last = 0

@@ -49,11 +49,17 @@ old printed source, not from someone's arrangement), or your own.
 
 1. Write it as ABC in `tools/songs/<name>.abc`: melody, chord symbols
    (`"G"`, `"D7"`, `"Am"`) and the lyrics in `w:` lines, a syllable per
-   note (`Dai-sy`), plus `%%language` and `%%style` (`waltz`, `sleigh`,
-   `disco`; a new style is a function in `tools/arrange.py`).
-2. `python tools/arrange.py` writes the .kar files: those in `OFFLINE` to
-   `songs/` (shipped), the rest to `songbook/` with `index.json`.
-3. Listen: `stage.prepare()` makes the audio file, as the skill does.
+   note (`Dai-sy`), plus `%%language`, `%%tags` (for searching, any
+   language) and `%%style` (`waltz`, `sleigh`, `disco`, `rocknroll`,
+   `lullaby`, `reggae`; a new style is a function in `tools/arrange.py`).
+   Hyphenate as the word is spelled: the TTS gets the syllables joined
+   (`køk-ke-net`, not `kø-ke-net`).
+2. Other languages: `tools/songs/<name>.<lang>.lyrics` with a `T:` title,
+   `%%language` and the `w:` lines - same melody, a syllable per note.
+3. `python tools/arrange.py` writes the .kar files: those in `OFFLINE` to
+   `songs/` (shipped), the rest to `songbook/` with `index.json`. A line
+   whose syllables don't match its notes stops it, naming the line.
+4. Listen: `stage.prepare()` makes the audio file, as the skill does.
 
 The build checks that the .kar files are what `tools/arrange.py` makes from
 the sources, so commit both.

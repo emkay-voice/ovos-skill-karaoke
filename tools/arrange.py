@@ -13,10 +13,16 @@ karaoke player can play it - with General MIDI instruments:
 
 Songs listed in OFFLINE are written to songs/ (shipped with the skill), the
 rest to songbook/ (fetched when asked for).
+
+Other languages: tools/songs/<name>.<lang>.lyrics holds a title (T:) and the
+w: lines for the same melody - a singable rewrite, a syllable per note. It
+becomes <name>.<lang>.kar next to the song. A lyric that doesn't fit the
+notes stops the build, with the line that is off.
 """
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -29,7 +35,7 @@ sys.path.insert(0, str(ROOT))
 from abcnotation import parse  # noqa: E402
 
 TPB = 480
-OFFLINE = {"daisy_bell", "hey_emkay"}
+OFFLINE = {"daisy_bell", "hey_emkay", "goodnight_emkay"}
 INTRO_BARS = 2
 
 NAMES = {"C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5, "F#": 6,
@@ -194,19 +200,162 @@ def disco(song, spans, bpb):
     return [drums, bass, clav, strings, brass], 81    # saw lead guide melody
 
 
-STYLES = {"waltz": waltz, "sleigh": sleigh, "disco": disco}
+def _swing(t):
+    """Shuffle: an off-beat eighth comes a triplet later."""
+    frac = t % 1
+    return t + 1 / 6 if abs(frac - 0.5) < 1e-6 else t
 
 
-def arrange(src: Path) -> tuple[bytes, dict]:
+def rocknroll(song, spans, bpb):
+    drums, bass, piano, guitar = (Part("Drums", 9, 0), Part("Bass", 1, 33),
+                                  Part("Piano", 2, 0), Part("Guitar", 3, 29))
+    end = spans[-1][1]
+    t = 0
+    while t < end - 1e-6:
+        for beat in range(4):
+            drums.note(t + beat, 0.2, 42, 70)
+            drums.note(t + beat + 0.5, 0.2, 42, 52)
+        drums.note(t, 0.25, 36, 100)
+        drums.note(t + 2, 0.25, 36, 92)
+        drums.note(t + 2.5, 0.25, 36, 70)
+        drums.note(t + 1, 0.25, 38, 96)
+        drums.note(t + 3, 0.25, 38, 96)
+        t += bpb
+    drums.note(0, 1.0, 49, 90)
+    drums.note(INTRO_BARS * bpb, 1.0, 49, 100)
+    for a, b, name in spans:
+        r = bass_note(name, 36)
+        boogie = [r, r + 4, r + 7, r + 9, r + 12, r + 9, r + 7, r + 4]
+        t = a
+        while t < b - 1e-6:
+            for k in range(8):                    # boogie-woogie bass
+                bass.note(t + k * 0.5, 0.4, boogie[k], 96 if k % 2 == 0 else 80)
+            for off in (0.5, 1.5, 2.5, 3.5):      # piano on the off-beats
+                for p in voicing(name, 60):
+                    piano.note(t + off, 0.3, p, 64)
+            for off in (1, 3):                    # guitar chops on 2 and 4
+                for p in voicing(name, 52):
+                    guitar.note(t + off, 0.35, p, 70)
+            t += bpb
+    return [drums, bass, piano, guitar], 66       # tenor sax guide melody
+
+
+def lullaby(song, spans, bpb):
+    """6/8: a harp rocking in dotted quarters, soft strings, a music box."""
+    harp, strings, box = Part("Harp", 1, 46), Part("Strings", 2, 49), Part("Music box", 3, 10)
+    for a, b, name in spans:
+        tones = voicing(name, 53)
+        arp = [bass_note(name, 41)] + tones + [tones[1] + 12, tones[0] + 12]
+        t = a
+        k = 0
+        while t < b - 1e-6:                       # eighths: up and down the chord
+            harp.note(t, 1.2, arp[[0, 1, 2, 3, 2, 1][k % 6]], 58 if k % 3 == 0 else 44)
+            t += 0.5
+            k += 1
+        for p in voicing(name, 60):
+            strings.note(a, b - a, p, 34)
+    for n in song.notes:
+        if n.midi is not None:
+            box.note(n.start + INTRO_BARS * bpb, min(n.dur, 1.5), n.midi + 12, 30)
+    return [harp, strings, box], 79               # ocarina guide melody
+
+
+def reggae(song, spans, bpb):
+    """One drop: kick and rim on 3, the skank on 2 and 4, a bubbling organ."""
+    drums, bass, guitar, organ = (Part("Drums", 9, 0), Part("Bass", 1, 33),
+                                  Part("Guitar", 2, 27), Part("Organ", 3, 16))
+    end = spans[-1][1]
+    t = 0
+    while t < end - 1e-6:
+        drums.note(t + 2, 0.25, 36, 100)
+        drums.note(t + 2, 0.25, 37, 84)
+        for k in range(8):
+            drums.note(t + k * 0.5, 0.15, 42, 58 if k % 2 else 44)
+        t += bpb
+    for a, b, name in spans:
+        r = bass_note(name, 36)
+        t = a
+        while t < b - 1e-6:
+            for off, p, d in ((0, r, 0.9), (1.5, r + 7, 0.4), (2.0, r + 7, 0.4),
+                              (2.5, r + 12, 0.4), (3.5, r + 4, 0.4)):
+                if t + off < b - 1e-6:
+                    bass.note(t + off, d, p, 100)
+            for off in (1, 3):                    # the skank
+                for p in voicing(name, 60):
+                    guitar.note(t + off, 0.18, p, 76)
+            for off in (0.5, 1.5, 2.5, 3.5):      # organ bubble
+                for p in voicing(name, 55):
+                    organ.note(t + off, 0.22, p, 46)
+            t += bpb
+    return [drums, bass, guitar, organ], 22       # harmonica guide melody
+
+
+STYLES = {"waltz": waltz, "sleigh": sleigh, "disco": disco,
+          "rocknroll": rocknroll, "lullaby": lullaby, "reggae": reggae}
+SWING = {"rocknroll"}
+
+
+def with_lyrics(abc: str, lyrics: str) -> str:
+    """The ABC source with its title, language and w: lines from a .lyrics file."""
+    lang = None
+    title, words = None, []
+    for ln in lyrics.splitlines():
+        if ln.startswith("T:"):
+            title = ln
+        elif ln.startswith("%%language"):
+            lang = ln
+        elif ln.startswith("w:"):
+            words.append(ln)
+    out, wi = [], 0
+    for ln in abc.splitlines():
+        if ln.startswith("w:"):
+            if wi >= len(words):
+                raise ValueError("fewer w: lines than the song has")
+            ln = words[wi]
+            wi += 1
+        elif ln.startswith("T:") and title:
+            ln, title = title, ""
+        elif ln.startswith("%%language") and lang:
+            ln = lang
+        out.append(ln)
+    if wi != len(words):
+        raise ValueError("more w: lines than the song has")
+    return "\n".join(out)
+
+
+def check_fit(text: str, name: str):
+    """Each w: line must have exactly a syllable per note of the music line
+    above it (a tied note is one note)."""
+    from abcnotation import _lyric_tokens
+    music = None
+    for ln in text.splitlines():
+        if ln.startswith("|"):
+            music = re.sub(r'"[^"]*"', "", ln)         # chord symbols out
+        elif ln.startswith("w:") and music:
+            notes = len(re.findall(r"[A-Ga-g]", music)) - music.count("-")
+            syllables = len(_lyric_tokens(ln[2:]))
+            if syllables != notes:
+                raise ValueError(f"{name}: {syllables} syllables for {notes} notes: {ln[2:].strip()}")
+
+
+def arrange(src: Path, lyrics: Path | None = None) -> tuple[bytes, dict]:
     from song import kar_words_track
 
-    song = parse(src.read_text(encoding="utf-8"))
+    text = src.read_text(encoding="utf-8")
+    if lyrics:
+        text = with_lyrics(text, lyrics.read_text(encoding="utf-8"))
+    check_fit(text, (lyrics or src).name)
+    song = parse(text)
     bpb = song.beats_per_bar
     offset = INTRO_BARS * bpb
     end = offset + song.length_beats + bpb            # one bar to finish
     spans = chord_spans(song, offset, end)
     parts, guide_prog = STYLES[song.style](song, spans, bpb)
 
+    if song.style in SWING:
+        for p in parts:
+            p.ev = [(int(round(_swing(t / TPB) * TPB)), on, pi, v) for t, on, pi, v in p.ev]
+    sw = _swing if song.style in SWING else (lambda t: t)
     melody = Part("Melody", 0, guide_prog)
     words = []
     first = True
@@ -214,32 +363,33 @@ def arrange(src: Path) -> tuple[bytes, dict]:
     for n in song.notes:
         if n.midi is None:
             continue
-        melody.note(n.start + offset, n.dur * 0.95, n.midi, 96)
+        st, en = sw(n.start + offset), sw(n.start + offset + n.dur)
+        melody.note(st, (en - st) * 0.95, n.midi, 96)
         if n.syllable is None:
             continue
         txt = n.syllable
-        words.append([int(round((n.start + offset) * TPB)), txt.rstrip(",.!?;:"), True, prev_end_line, first])
+        words.append([int(round(sw(n.start + offset) * TPB)), txt.rstrip(",.!?;:"), True, prev_end_line, first])
         first = False
         prev_end_line = txt[-1:] in ".!?"
     # word starts: a syllable follows a word end
     ends = [n for n in song.notes if n.midi is not None and n.syllable is not None]
     for i in range(1, len(words)):
         words[i][2] = ends[i - 1].word_end
-    # lines: a sentence (. ! ?) ends a line; a long sentence is broken at its
-    # commas, so a line holds at most MAX_LINE syllables where it can
-    MAX_LINE = 12
+    # lines: a sentence (. ! ?) ends a line; inside one, a comma does once
+    # the line has 6 syllables and at least 4 are left for the next
     i = 0
     while i < len(words):
         j = i + 1
         while j < len(words) and not words[j][3]:
             j += 1
-        commas = [k + 1 for k in range(i, j - 1) if ends[k].syllable.endswith(",")]
         start = i
-        for c in commas:
-            if c - start >= 4 and j - c >= 4 and j - start > MAX_LINE:
+        for k in range(i, j - 1):
+            c = k + 1
+            if ends[k].syllable.endswith(",") and c - start >= 6 and j - c >= 4:
                 words[c][3] = True
                 start = c
         i = j
+
     mid = mido.MidiFile(type=1, ticks_per_beat=TPB)
     t0 = mido.MidiTrack()
     t0.append(mido.MetaMessage("track_name", name=song.title, time=0))
@@ -250,29 +400,38 @@ def arrange(src: Path) -> tuple[bytes, dict]:
     t0.append(mido.MetaMessage("end_of_track", time=int(end * TPB)))
     mid.tracks.append(t0)
     mid.tracks.append(kar_words_track([tuple(w) for w in words], song.title,
-                                      "ENGL" if song.language == "en" else song.language,
-                                      song.composer))
+                                      "ENGL" if song.language == "en" else song.language.upper(),
+                                      song.composer, song.tags))
     mid.tracks.append(melody.track())
     for p in parts:
         mid.tracks.append(p.track())
     import io
     buf = io.BytesIO()
     mid.save(file=buf)
+    joined = []
+    for _, text, word_start, _, _ in words:       # syllables -> words, for searching
+        if word_start or not joined:
+            joined.append("")
+        joined[-1] += text
+    lyric_words = sorted({re.sub(r"[^\w']", "", w).lower() for w in joined} - {""})
     meta = {"title": song.title, "credits": song.composer, "language": song.language,
-            "style": song.style}
+            "style": song.style, "tags": song.tags, "words": lyric_words}
     return buf.getvalue(), meta
 
 
 def main():
     index = []
     for src in sorted((ROOT / "tools" / "songs").glob("*.abc")):
-        data, meta = arrange(src)
-        where = "songs" if src.stem in OFFLINE else "songbook"
-        out = ROOT / where / f"{src.stem}.kar"
-        out.write_bytes(data)
-        if where == "songbook":
-            index.append({"file": out.name, **meta})
-        print(f"{out.relative_to(ROOT)}: {meta['title']} ({meta['style']})")
+        variants = [(None, src.stem)] + [
+            (ly, ly.name[: -len(".lyrics")]) for ly in sorted(src.parent.glob(f"{src.stem}.*.lyrics"))]
+        for lyrics, name in variants:
+            data, meta = arrange(src, lyrics)
+            where = "songs" if src.stem in OFFLINE else "songbook"
+            out = ROOT / where / f"{name}.kar"
+            out.write_bytes(data)
+            if where == "songbook":
+                index.append({"file": out.name, **meta})
+            print(f"{out.relative_to(ROOT)}: {meta['title']} ({meta['language']}, {meta['style']})")
     (ROOT / "songbook" / "index.json").write_text(
         json.dumps({"songs": index}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 

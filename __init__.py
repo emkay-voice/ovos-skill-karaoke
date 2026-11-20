@@ -5,6 +5,8 @@
   "karaoke Jingle Bells"  the band plays (with the melody as a guide) and the
                           screen shows the words, the chords and the melody
   "what songs can you sing"
+  "find a song about christmas"
+  "can you sing a song?"  it's a little shy at first - say "come on"
 
 Songs are MIDI-karaoke (.kar) files: a few ship with the skill, more come
 from the online songbook, and your own go in the skill's `songs` folder.
@@ -39,6 +41,7 @@ SONGBOOK_URL = "https://raw.githubusercontent.com/emkay-voice/ovos-skill-karaoke
 LYRICS_MSG = "ovos.karaoke.lyrics"
 ENDED_MSG = "ovos.karaoke.ended"
 START_WAIT = 3.0          # seconds to wait for the player to say it started
+SHY_AFTER = 3600          # shy again when it hasn't sung for an hour
 
 
 class KaraokeSkill(OVOSSkill):
@@ -50,6 +53,7 @@ class KaraokeSkill(OVOSSkill):
         self.settings.setdefault("sing_screen", "face")    # or "lyrics"
         self._singers = {}
         self._run = None          # threading.Event of the running performance
+        self._last_sung = 0.0     # when it last sang (it's shy when it hasn't for a while)
         self._lock = threading.Lock()
         (self.own_folder).mkdir(parents=True, exist_ok=True)
 
@@ -69,14 +73,14 @@ class KaraokeSkill(OVOSSkill):
         folders = [self.own_folder] + [Path(p).expanduser() for p in self.settings.get("song_folders", [])]
         found = songbook.local_songs(folders)
         if online:
-            known = {songbook.normalise(e.title) for e in found}
+            known = {(e.key, e.language) for e in found}
             found += [e for e in songbook.online_songs(self.settings.get("songbook_url"), self._fetch)
-                      if songbook.normalise(e.title) not in known]
+                      if (e.key, e.language) not in known]
         return found
 
     def _find(self, name: str):
         local = self._entries(online=False)
-        return songbook.find(name, local) or songbook.find(name, self._entries(online=True))
+        return songbook.find(name, local, self.lang) or songbook.find(name, self._entries(online=True), self.lang)
 
     def _song_bytes(self, entry) -> bytes:
         if entry.path:
@@ -88,7 +92,7 @@ class KaraokeSkill(OVOSSkill):
         return cached.read_bytes()
 
     def _pick_any(self):
-        entries = self._entries(online=False) or self._entries(online=True)
+        entries = songbook.songs(self._entries(online=False) or self._entries(online=True), self.lang)
         return random.choice(entries) if entries else None
 
     # ------------------------------------------------------------ intents
@@ -98,6 +102,15 @@ class KaraokeSkill(OVOSSkill):
 
     @intent_handler("sing_any.intent")
     def handle_sing_any(self, message):
+        """"Can you sing a song?" - a little shy, as Mycroft was ("I'm a bit
+        nervous about my voice, but here goes nothing"): it says no, and
+        sings when you encourage it."""
+        if time.time() - self._last_sung > SHY_AFTER:
+            answer = self.get_response("shy", num_retries=0)
+            if not answer or not self.voc_match(answer, "encourage"):
+                self.speak_dialog("maybe_later")
+                return
+            self.speak_dialog("okay_then", wait=True)
         self._start("", "sing")
 
     @intent_handler("karaoke.intent")
@@ -108,9 +121,36 @@ class KaraokeSkill(OVOSSkill):
     def handle_karaoke_any(self, message):
         self._start("", "karaoke")
 
+    @intent_handler("find_song.intent")
+    def handle_find(self, message):
+        query = message.data.get("query", "")
+        found = songbook.search(query, self._entries(), self.lang)
+        if not found:
+            self.speak_dialog("no_match", {"query": query})
+            return
+        titles = [songbook.short_title(e.title) for e in found[:6]]
+        self._show_list(found[:6])
+        if len(found) == 1:
+            if self.ask_yesno("found_one", {"song": titles[0]}) == "yes":
+                self._start(found[0].title, "sing")
+            return
+        answer = self.get_response("found_many", {"songs": self._join(titles)}, num_retries=0)
+        pick = songbook.find(answer or "", found, self.lang) if answer else None
+        if pick:
+            self._start(pick.title, "karaoke" if self.voc_match(answer, "karaoke") else "sing")
+        else:
+            self.gui.release()
+
+    def _show_list(self, entries):
+        """The songs found, as tiles on the screen (stock SYSTEM_grid)."""
+        self.gui["title"] = ""
+        self.gui["items"] = [{"image": sheet.card(songbook.short_title(e.title), e.tags),
+                              "title": songbook.short_title(e.title)} for e in entries]
+        self.gui.show_page("SYSTEM_grid", override_idle=60)
+
     @intent_handler("list_songs.intent")
     def handle_list(self, message):
-        titles = sorted({songbook.short_title(e.title) for e in self._entries()})
+        titles = sorted({songbook.short_title(e.title) for e in songbook.songs(self._entries(), self.lang)})
         if not titles:
             self.speak_dialog("no_songs")
             return
@@ -128,7 +168,7 @@ class KaraokeSkill(OVOSSkill):
             name = ""
         entry = self._find(name) if name else self._pick_any()
         if entry is None:
-            local = sorted({songbook.short_title(e.title) for e in self._entries()})
+            local = sorted({songbook.short_title(e.title) for e in songbook.songs(self._entries(), self.lang)})
             self.speak_dialog("unknown_song", {"song": name, "songs": self._join(local[:5])})
             return
         self.stop()
@@ -140,6 +180,8 @@ class KaraokeSkill(OVOSSkill):
             self.log.exception(f"could not prepare {entry.title}: {e}")
             self.speak_dialog("no_voice" if mode == "sing" else "no_band")
             return
+        if mode == "sing":
+            self._last_sung = time.time()
         self._perform(perf, title)
 
     def _singer(self) -> Singer:
@@ -209,10 +251,10 @@ class KaraokeSkill(OVOSSkill):
                     self.gui["background_color"] = sheet.BG
                     self.gui.show_page("SYSTEM_ImageFrame", override_idle=True)
                     shown = True
-        run.wait(max(0.0, song.length - (time.monotonic() - t0)))
-        self._finish(run)
+        if not run.wait(max(0.0, song.length - (time.monotonic() - t0))):
+            self._finish(run, perf.mode)
 
-    def _finish(self, run):
+    def _finish(self, run, mode="karaoke"):
         with self._lock:
             if self._run is not run:
                 return
@@ -220,6 +262,9 @@ class KaraokeSkill(OVOSSkill):
         run.set()
         self.bus.emit(Message(ENDED_MSG))
         self.gui.release()
+        if mode == "sing":            # as Mycroft did: "thank you for listening", "now you try"
+            self._last_sung = time.time()
+            self.speak_dialog("after_song")
 
     def stop(self):
         with self._lock:

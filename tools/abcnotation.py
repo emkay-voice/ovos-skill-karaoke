@@ -3,7 +3,7 @@
 Supports the subset the songbook uses: header fields (T, C, M, L, Q, K),
 notes with accidentals/octaves/lengths, ties, rests, bar lines, chord
 symbols ("D", "A7", "Bm") and aligned lyrics (w:) with '-', '_' and '*',
-plus two comments of our own: %%language and %%style (the arrangement).
+plus comments of our own: %%language, %%tags and %%style (the arrangement).
 """
 from __future__ import annotations
 
@@ -39,6 +39,7 @@ class Song:
     composer: str = ""
     language: str = "en"
     style: str = "waltz"
+    tags: list = field(default_factory=list)
     meter: tuple[int, int] = (4, 4)
     tempo_bpm: float = 120.0
     notes: list[Note] = field(default_factory=list)
@@ -110,6 +111,8 @@ def parse(text: str) -> Song:
         line = raw.split("%", 1)[0].rstrip() if not raw.startswith("%%") else ""
         if raw.startswith("%%language"):
             song.language = raw.split()[1]
+        if raw.startswith("%%tags"):
+            song.tags = [t.strip() for t in raw[len("%%tags"):].split(",") if t.strip()]
         if raw.startswith("%%style"):
             song.style = raw.split()[1]
         if not line.strip():
@@ -126,9 +129,13 @@ def parse(text: str) -> Song:
             elif f == "L":
                 a, b = v.split("/")
                 unit = Fraction(int(a), int(b))
-            elif f == "Q":
-                bpm = v.split("=")[-1]
-                song.tempo_bpm = float(bpm)
+            elif f == "Q":            # "1/4=120" or "3/8=46": in quarter notes per minute
+                if "=" in v:
+                    unit_s, bpm = v.split("=")
+                    a, b = unit_s.strip().split("/")
+                    song.tempo_bpm = float(bpm) * int(a) * 4 / int(b)
+                else:
+                    song.tempo_bpm = float(v)
             elif f == "K":
                 key_acc = _key_accidentals(v)
             continue
