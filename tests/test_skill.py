@@ -76,8 +76,12 @@ def test_karaoke_shows_the_sheet(skill):
     skill.gui.show_page.assert_called_with("SYSTEM_ImageFrame", override_idle=True)
 
 
-def test_a_song_read_as_a_name(skill):
-    skill.handle_sing(MagicMock(data={"song": "a song"}))    # "sing a song"
+def test_a_song_read_as_a_name_is_the_shy_question(skill):
+    """"can you sing a song?" matches "can you sing {song}" with song "a
+    song": that is no title, so it gets shy as "sing_any" does."""
+    skill.get_response.return_value = "come on"
+    skill.handle_sing(MagicMock(data={"song": "a song"}))
+    assert skill.get_response.call_args[0][0] == "shy"
     assert skill.audio_service.play.called
 
 

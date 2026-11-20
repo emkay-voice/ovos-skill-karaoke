@@ -98,6 +98,10 @@ class KaraokeSkill(OVOSSkill):
     # ------------------------------------------------------------ intents
     @intent_handler("sing.intent")
     def handle_sing(self, message):
+        if not songbook.normalise(message.data.get("song", "")):
+            # "can you sing a song?" also matches "can you sing {song}"
+            # (song: "a song"): that is the shy question, not a title
+            return self.handle_sing_any(message)
         self._start(message.data.get("song", ""), "sing")
 
     @intent_handler("sing_any.intent")
