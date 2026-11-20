@@ -218,7 +218,15 @@ class KaraokeSkill(OVOSSkill):
                            skill_id=self.skill_id, skill_icon=str(SKILL_ROOT / "icon.png"),
                            image=str(SKILL_ROOT / "icon.png"), length=int(perf.song.length * 1000))
         self.audio_service.play([entry])
-        started.wait(START_WAIT)
+        self._classic = False
+        if not started.wait(START_WAIT):
+            # nobody plays OCP's own ovos.common_play.play here: OCP is in
+            # "legacy" mode (no ovos-media - Emkay, many installs), where
+            # ovos-audio's AudioService is the player
+            self._classic = True
+            self.bus.emit(Message("mycroft.audio.service.play",
+                                  {"tracks": [entry.uri], "repeat": False}))
+            started.wait(START_WAIT)
         t0 = time.monotonic() - 0.15          # the player answers a moment after it starts
         if perf.mode == "sing" and perf.visemes:
             self.bus.emit(Message("enclosure.mouth.viseme_list",
@@ -277,6 +285,8 @@ class KaraokeSkill(OVOSSkill):
             return False
         run.set()
         self.audio_service.stop()
+        if getattr(self, "_classic", False):
+            self.bus.emit(Message("mycroft.audio.service.stop"))
         self.bus.emit(Message(ENDED_MSG))
         self.gui.release()
         return True

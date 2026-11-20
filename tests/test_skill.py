@@ -70,6 +70,17 @@ def test_second_time_is_cached(skill):
     assert time.monotonic() - t < 1.0
 
 
+def test_classic_audio_service_when_ocp_does_not_play(skill):
+    """OCP in "legacy" mode (Emkay, installs without ovos-media) plays
+    nothing on ovos.common_play.play: then ovos-audio's AudioService."""
+    skill.handle_sing(MagicMock(data={"song": "daisy"}))
+    sent = [c[0][0] for c in skill.bus.emit.call_args_list]
+    play = [m for m in sent if m.msg_type == "mycroft.audio.service.play"]
+    assert play and play[0].data["tracks"][0].startswith("file://")
+    skill.stop()
+    assert "mycroft.audio.service.stop" in [c[0][0].msg_type for c in skill.bus.emit.call_args_list]
+
+
 def test_karaoke_shows_the_sheet(skill):
     skill.handle_karaoke(MagicMock(data={"song": "daisy"}))
     time.sleep(0.3)
