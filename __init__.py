@@ -43,18 +43,26 @@ ENDED_MSG = "ovos.karaoke.ended"
 MIDI_WAIT = 3.0           # seconds to wait for the MIDI plugin to answer
 START_AFTER = 1.0         # the song starts this long after it is sent (plus the plugin's latency)
 SHY_AFTER = 3600          # shy again when it hasn't sung for an hour
+#: a song's tag: it begins by giving in ("Okay... okay, I'll sing"), so it is
+#: the one sung after "can you sing a song?" - "no" - "come on"
+COAXED = "coaxed"
 
 
 class KaraokeSkill(OVOSSkill):
+
+    def __init__(self, *args, **kwargs):
+        # before OVOSSkill's own setup: its intents are registered, and can
+        # be asked, before initialize() has run (on a slow device for a while)
+        self._singers = {}
+        self._run = None          # threading.Event of the running performance
+        self._last_sung = 0.0     # when it last sang (it's shy when it hasn't for a while)
+        self._lock = threading.Lock()
+        super().__init__(*args, **kwargs)
 
     def initialize(self):
         self.settings.setdefault("songbook_url", SONGBOOK_URL)
         self.settings.setdefault("song_folders", [])
         self.settings.setdefault("sing_screen", "face")    # or "lyrics"
-        self._singers = {}
-        self._run = None          # threading.Event of the running performance
-        self._last_sung = 0.0     # when it last sang (it's shy when it hasn't for a while)
-        self._lock = threading.Lock()
         (self.own_folder).mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------ songs
@@ -91,8 +99,10 @@ class KaraokeSkill(OVOSSkill):
             cached.write_bytes(self._fetch(entry.url))
         return cached.read_bytes()
 
-    def _pick_any(self):
+    def _pick_any(self, tag: str = ""):
         entries = songbook.songs(self._entries(online=False) or self._entries(online=True), self.lang)
+        if tag:      # in the user's own language only: its first words are spoken
+            entries = [e for e in entries if tag in e.tags and e.language == self.lang[:2]]
         return random.choice(entries) if entries else None
 
     # ------------------------------------------------------------ intents
@@ -113,6 +123,12 @@ class KaraokeSkill(OVOSSkill):
             answer = self.get_response("shy", num_retries=0)
             if not answer or not self.voc_match(answer, "encourage"):
                 self.speak_dialog("maybe_later")
+                return
+            # a song made for this moment begins by giving in itself ("Okay...
+            # okay, I'll sing. But first, drums!"); else, as Mycroft did
+            coaxed = self._pick_any(tag=COAXED)
+            if coaxed:
+                self._start("", "sing", entry=coaxed, quiet=True)
                 return
             self.speak_dialog("okay_then", wait=True)
         self._start("", "sing")
@@ -167,10 +183,12 @@ class KaraokeSkill(OVOSSkill):
         return ", ".join(items[:-1]) + f" {self.dialog_renderer.render('and', {})} " + items[-1]
 
     # ------------------------------------------------------------ performing
-    def _start(self, name: str, mode: str):
+    def _start(self, name: str, mode: str, entry=None, quiet=False):
+        """`quiet`: no "warming up my voice for ..." when the voice is ready
+        (the song starts by talking itself)."""
         if not songbook.normalise(name):          # "sing a song" read as song="a song"
             name = ""
-        entry = self._find(name) if name else self._pick_any()
+        entry = entry or (self._find(name) if name else self._pick_any())
         if entry is None:
             local = sorted({songbook.short_title(e.title) for e in songbook.songs(self._entries(), self.lang)})
             self.speak_dialog("unknown_song", {"song": name, "songs": self._join(local[:5])})
@@ -181,7 +199,8 @@ class KaraokeSkill(OVOSSkill):
             self.speak_dialog("no_midi")
             return
         title = songbook.short_title(entry.title)
-        self.speak_dialog("warming_up" if mode == "sing" else "setting_up", {"song": title}, wait=True)
+        if not (quiet and stage.ready(self._song_bytes(entry), mode, self._cache, voice_id(self.lang))):
+            self.speak_dialog("warming_up" if mode == "sing" else "setting_up", {"song": title}, wait=True)
         try:
             perf = self._prepare(entry, mode)
         except Exception as e:
@@ -201,6 +220,10 @@ class KaraokeSkill(OVOSSkill):
             return None
         return r.data
 
+    @property
+    def _cache(self) -> Path:
+        return Path(self.file_system.path) / "cache"
+
     def _singer(self) -> Singer:
         vid = voice_id(self.lang)
         if vid not in self._singers:      # keeps its spoken words between songs
@@ -209,9 +232,9 @@ class KaraokeSkill(OVOSSkill):
 
     def _prepare(self, entry, mode):
         data = self._song_bytes(entry)
-        singer = self._singer() if mode == "sing" else None
-        return stage.prepare(data, mode, Path(self.file_system.path) / "cache", singer=singer,
-                             voice_id=voice_id(self.lang) if singer else "", title=entry.title)
+        # karaoke too: a song may have lines the device says ("first, drums!")
+        return stage.prepare(data, mode, self._cache, singer=self._singer(),
+                             voice_id=voice_id(self.lang), title=entry.title)
 
     def _perform(self, perf, title, band):
         """The band (the song's file) and, when Emkay sings, the voice (a
@@ -220,7 +243,7 @@ class KaraokeSkill(OVOSSkill):
         with self._lock:
             self._run = run
         at = time.time() + float(band.get("latency", 0.3)) + START_AFTER
-        if perf.vocal:
+        if perf.vocal and band.get("clips"):
             clip = {"source": self.skill_id, "at": at, "path": str(perf.vocal)}
             r = self.bus.wait_for_response(Message("ovos.midi.clip", clip), "ovos.midi.clip.response",
                                            timeout=START_AFTER / 2)
@@ -239,23 +262,33 @@ class KaraokeSkill(OVOSSkill):
         """Keep the screen (and the words on the bus) in time with the song."""
         song, lines = perf.song, perf.song.lines
         show_sheet = perf.mode == "karaoke" or self.settings.get("sing_screen") == "lyrics"
-        times = sorted({s.time for s in song.syllables})
+        # the first line at once (read along during the intro), each line
+        # again just before its first word, the sheet at every syllable, and
+        # the lines the device says ("first we need some drums!") at theirs
+        events = [(0.0, "start", "")] + [(max(0.0, ln[0].time - 0.6), "line", "") for ln in lines] + \
+                 [(s.time, "syllable", "") for s in song.syllables] + \
+                 [(t, "say", text) for t, text in song.spoken]
+        events.sort(key=lambda e: e[0])
         line_idx = -1
         shown = False
-        # the first line at once (read along during the intro), then at every
-        # syllable: the line moves on just before its first word
-        for t in [0.0] + times:
+        for t, kind, text in events:
             delay = t - (time.monotonic() - t0)
             if run.wait(max(0.0, delay)):
                 return
             now = time.monotonic() - t0
+            if kind == "say":
+                upcoming = next((ln for ln in lines if ln[0].time > now), [])
+                self.bus.emit(Message(LYRICS_MSG, {"title": title, "line": text, "spoken": True,
+                                                   "next": sheet.line_text(upcoming), "mode": perf.mode}))
+                line_idx = -1                # the sung line comes back after it
+                continue
             idx = max([i for i, ln in enumerate(lines) if ln[0].time - 0.6 <= now] or [0])
             nxt = lines[idx + 1] if idx + 1 < len(lines) else []
             if idx != line_idx:
                 line_idx = idx
                 self.bus.emit(Message(LYRICS_MSG, {"title": title, "line": sheet.line_text(lines[idx]),
                                                    "next": sheet.line_text(nxt), "mode": perf.mode}))
-                if perf.mode == "sing" and perf.visemes and line_idx == 0 and t == 0.0:
+                if perf.mode == "sing" and perf.visemes and kind == "start":
                     # the mouth, after the first words: a screen that shows
                     # the face while the device sings (Emkay) does so on them
                     self.bus.emit(Message("enclosure.mouth.viseme_list",

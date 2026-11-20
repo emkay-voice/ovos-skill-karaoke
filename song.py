@@ -62,6 +62,9 @@ class Song:
     midi: mido.MidiFile
     melody_track: int | None
     length: float
+    #: [(seconds, text)]: lines said with the normal voice, not sung (a
+    #: cue_marker "say:<text>" in the file, as our songbook writes them)
+    spoken: list = field(default_factory=list)
 
     @property
     def lines(self) -> list[list[Syllable]]:
@@ -408,7 +411,21 @@ def load(data: bytes, title: str = "", language: str = "") -> Song:
     length = mid.length
     chords = marked_chords(mid, sec) or detect_chords(tracks, mel, length, beat * meter, split)
     lang = {"en": "en", "eng": "en", "da": "da", "dan": "da"}.get(language[:3], language[:2] or "en")
-    return Song(title or "", lang, syllables, chords, mid, mel, length)
+    return Song(title or "", lang, syllables, chords, mid, mel, length, spoken_lines(mid, sec))
+
+
+SAY = "say:"
+
+
+def spoken_lines(mid: mido.MidiFile, sec) -> list:
+    out = []
+    for tr in mid.tracks:
+        t = 0
+        for m in tr:
+            t += m.time
+            if m.type == "cue_marker" and m.text.startswith(SAY) and m.text[len(SAY):].strip():
+                out.append((sec(t), m.text[len(SAY):].strip()))
+    return sorted(out)
 
 
 # ------------------------------------------------------------------ writing
@@ -428,6 +445,18 @@ def kar_words_track(syllables_ticks, title: str, language: str, credits: str = "
     for tick, text, ws, ls, vs in syllables_ticks:
         prefix = "\\" if vs else "/" if ls else " " if ws else ""
         tr.append(mido.MetaMessage("text", text=prefix + text, time=tick - last))
+        last = tick
+    tr.append(mido.MetaMessage("end_of_track", time=0))
+    return tr
+
+
+def spoken_track(lines_ticks):
+    """The lines said with the normal voice: [(tick, text)] as cue markers."""
+    tr = mido.MidiTrack()
+    tr.append(mido.MetaMessage("track_name", name="Spoken", time=0))
+    last = 0
+    for tick, text in sorted(lines_ticks):
+        tr.append(mido.MetaMessage("cue_marker", text=SAY + text, time=tick - last))
         last = tick
     tr.append(mido.MetaMessage("end_of_track", time=0))
     return tr

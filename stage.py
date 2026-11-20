@@ -9,7 +9,9 @@ instrument), so nothing has to be rendered first.
             plays in time with it. The voice is made once and kept (keyed by
             the song and the voice), with the key used and the mouth
             movements, which the face needs
-  karaoke   you sing: the band with the melody as a guide, in the song's key
+  karaoke   you sing: the band with the melody as a guide, in the song's key;
+            a song's spoken lines ("first we need some drums!") are still
+            said by the device, as a clip
 """
 from __future__ import annotations
 
@@ -54,20 +56,35 @@ def _write_wav(path: Path, x: np.ndarray, sr: int):
         w.writeframes((np.clip(x, -1, 1) * 32767).astype(np.int16).tobytes())
 
 
+def _cached(data: bytes, mode: str, cache_dir: Path, voice_id: str):
+    key = hashlib.sha1(data + f"|{mode}|{voice_id}|{VERSION}".encode()).hexdigest()[:16]
+    return cache_dir / f"{key}.wav", cache_dir / f"{key}.json"
+
+
+def ready(data: bytes, mode: str, cache_dir: Path, voice_id: str) -> bool:
+    """Can it start at once: no voice to make first?"""
+    path, meta = _cached(data, mode, cache_dir, voice_id)
+    return mode != "sing" or (path.exists() and meta.exists())
+
+
 def prepare(data: bytes, mode: str, cache_dir: Path, singer=None, voice_id: str = "",
             title: str = "", progress=None) -> Performance:
     song = load(data, title=title)
-    if mode != "sing":
+    if mode != "sing" and not (song.spoken and singer):
         return Performance(song, mode, data)
-    key = hashlib.sha1(data + f"|{voice_id}|{VERSION}".encode()).hexdigest()[:16]
     cache_dir.mkdir(parents=True, exist_ok=True)
-    path, meta = cache_dir / f"{key}.wav", cache_dir / f"{key}.json"
+    path, meta = _cached(data, mode, cache_dir, voice_id)
     if path.exists() and meta.exists():
         m = json.loads(meta.read_text())
     else:
-        vocal, visemes, (transpose, _octave) = singer.sing(song, SR, progress=progress)
+        if mode == "sing":
+            vocal, visemes, (transpose, _octave) = singer.sing(song, SR, progress=progress)
+        else:                                   # only the spoken lines
+            vocal, visemes = singer.speak_lines(song, SR)
+            transpose = 0
         vocal = vocal * (0.8 / (np.abs(vocal).max() or 1.0))
         _write_wav(path, vocal, SR)
         m = {"transpose": transpose, "visemes": visemes}
         meta.write_text(json.dumps(m))
-    return Performance(song, mode, data, path, m["transpose"], m["visemes"], melody_channels(song))
+    mute = melody_channels(song) if mode == "sing" else []
+    return Performance(song, mode, data, path, m["transpose"], m["visemes"], mute)

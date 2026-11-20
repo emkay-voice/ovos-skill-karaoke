@@ -17,6 +17,8 @@ ROOT = Path(sk.__file__).resolve().parent
 def skill(tmp_path, monkeypatch, speak):
     monkeypatch.setattr(sk, "START_AFTER", 0.05)
     s = sk.KaraokeSkill.__new__(sk.KaraokeSkill)
+    monkeypatch.setattr(sk.OVOSSkill, "__init__", lambda self, *a, **k: None)
+    sk.KaraokeSkill.__init__(s)
     s.log = MagicMock()
     s.skill_id = "ovos-skill-karaoke.test"
     monkeypatch.setattr(sk.KaraokeSkill, "lang", "en-us", raising=False)
@@ -62,6 +64,14 @@ def played(skill):
 def title(skill):
     return [c[0][1]["song"] for c in skill.speak_dialog.call_args_list
             if c[0][0] in ("warming_up", "setting_up")][-1]
+
+
+def test_asked_before_initialize(monkeypatch):
+    """Its intents can be asked before initialize() has run (Emkay loads a
+    skill for a minute): stop() and the state must be there already."""
+    monkeypatch.setattr(sk.OVOSSkill, "__init__", lambda self, *a, **k: None)
+    s = sk.KaraokeSkill()
+    assert s.stop() is False and s._last_sung == 0.0
 
 
 def test_unknown_song(skill):
@@ -150,7 +160,10 @@ def test_locales_match():
             assert lines and all(slot in ln for ln in lines), (lang, name)
 
 
-def test_shy_then_sings_when_encouraged(skill):
+def test_shy_then_sings_when_encouraged(skill, monkeypatch):
+    """With no song that gives in by itself: "here goes nothing", as Mycroft."""
+    pick = skill._pick_any
+    monkeypatch.setattr(skill, "_pick_any", lambda tag="": None if tag else pick())
     skill.get_response.return_value = "oh come on"
     skill.handle_sing_any(MagicMock(data={}))
     assert skill.get_response.call_args[0][0] == "shy"
@@ -189,3 +202,16 @@ def test_find_many_and_pick_one(skill):
 def test_nothing_found(skill):
     skill.handle_find(MagicMock(data={"query": "submarines"}))
     skill.speak_dialog.assert_called_with("no_match", {"query": "submarines"})
+
+
+def test_coaxed_it_sings_the_song_that_gives_in(skill, monkeypatch):
+    """"come on" - and Emkay's Swing starts by giving in itself ("Okay...
+    okay, I'll sing"), so no "here goes nothing" first."""
+    skill.get_response.return_value = "oh come on"
+    skill.handle_sing_any(MagicMock(data={}))
+    spoken = [c[0][0] for c in skill.speak_dialog.call_args_list]
+    assert "okay_then" not in spoken
+    assert title(skill) == "Emkay's Swing"
+    clip = [c[0][0].data for c in skill.bus.wait_for_response.call_args_list
+            if c[0][0].msg_type == "ovos.midi.clip"][-1]
+    assert Path(clip["path"]).exists()

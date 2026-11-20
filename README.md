@@ -36,10 +36,14 @@ French, Italian, Dutch, Portuguese (Portugal and Brazil), Catalan, Basque and
 Galician.
 
 Asked to sing just *a* song, it is a little shy at first - "Oh no, you'll
-just laugh at me" - until you encourage it. Then: "I'm a bit nervous about
-my voice, but here goes nothing", and afterwards "thank you for listening"
-or "now you try" - lines from Mycroft's own singing skill, which the Mark 1
-demo used to sing every two minutes.
+just laugh at me" - until you encourage it. Then it gives in with *Emkay's
+Swing*: "Okay... okay, I'll sing. But first... we need some drums!" The drums
+start. "Yeah! That's good. Now just a little bit of bass..." The bass comes
+in. "Ohhh, listen to that swing! And now... the whole orchestra!" BAM, the
+big band, and it sings. Afterwards: "thank you for listening" or "now you
+try", lines from Mycroft's own singing skill, which the Mark 1 demo used to
+sing every two minutes. (In a language with no Emkay's Swing it says, as
+Mycroft did, "I'm a bit nervous about my voice, but here goes nothing".)
 
 The first time a song is asked for, it takes a few seconds to get ready (the
 device says it is warming up its voice); after that it starts at once.
@@ -49,6 +53,7 @@ device says it is warming up its voice); after that it starts at once.
 | Song | | |
 |---|---|---|
 | Daisy Bell (Bicycle Built for Two) | waltz | ships with the skill |
+| Emkay's Swing | swing (big band) | ships with the skill, in 11 languages |
 | Hey Emkay | disco | ships with the skill, in 11 languages |
 | Goodnight from Emkay | lullaby | ships with the skill |
 | Jerusalem | hymn | ships with the skill |
@@ -79,8 +84,8 @@ A song can come in several languages - `hey_emkay.kar`, `hey_emkay.da.kar`,
 ... - and they count as one song: the device sings the version in its own
 language, or English when there is none. *Hey Emkay* is in English, Danish,
 German, Spanish, French, Italian, Dutch, Portuguese, Catalan, Basque and
-Galician - the
-languages Emkay speaks. They are singable rewrites rather than translations
+Galician - the languages Emkay speaks - and so is *Emkay's Swing*, spoken
+lines included. They are singable rewrites rather than translations
 (same melody, a syllable per note); corrections from native speakers are
 very welcome.
 

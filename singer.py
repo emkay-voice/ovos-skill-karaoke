@@ -13,6 +13,10 @@
 
 Also gives the mouth movements (visemes) for the face: closed between
 syllables, open or rounded on the vowels.
+
+A song can also have lines that are said, not sung (song.spoken: "Okay...
+but first we need some drums!"): the TTS says them as it always does, at
+their time.
 """
 from __future__ import annotations
 
@@ -44,6 +48,22 @@ def mouth(syllable: str) -> str:
         if c in "aeiæ":
             return "0"
     return "3"
+
+
+def said_visemes(text: str, start: float, seconds: float):
+    """The mouth for a spoken line: its words spread over the time it takes,
+    closed between words, open or rounded on each ([code, until] pairs)."""
+    words = [w for w in re.findall(r"[\w'’]+", text)]
+    if not words or seconds <= 0:
+        return []
+    weights = [max(1, len(w)) for w in words]
+    unit = seconds / sum(weights)
+    out, t = [["4", round(start, 3)]], start
+    for w, k in zip(words, weights):
+        t += k * unit
+        out.append([mouth(w), round(t - min(0.06, k * unit / 3), 3)])
+        out.append(["4", round(t, 3)])
+    return out
 
 
 def choose_key(song: Song, voice_f0: float):
@@ -139,6 +159,9 @@ class Singer:
                 visemes.append(["4", round(s.notes[0].start, 3)])
                 visemes.append([mouth(s.text), round(s.notes[-1].end - 0.05, 3)])
         vocal = out / np.maximum(wsum, 1.0)
+        said, said_visemes = self.speak_lines(song, sr, len(vocal))
+        vocal = vocal + said
+        visemes = sorted(visemes + said_visemes, key=lambda v: v[1])
         if sr != out_sr:
             n = int(len(vocal) * out_sr / sr)
             vocal = np.interp(np.arange(n) * sr / out_sr, np.arange(len(vocal)), vocal)
@@ -146,6 +169,26 @@ class Singer:
         if peak > 0:
             vocal = vocal / peak
         return vocal, visemes, (transpose, octave)
+
+    def speak_lines(self, song: Song, sr: int, n: int | None = None):
+        """The song's spoken lines, each at its time, in the normal voice:
+        (samples at sr, visemes). Each line about as loud as the singing."""
+        n = n or int((song.length + 2.0) * sr)
+        out = np.zeros(n)
+        visemes = []
+        for t, text in song.spoken:
+            x, wsr = self.speak(text)
+            x = np.asarray(x, dtype=np.float64)
+            if wsr != sr:
+                x = np.interp(np.arange(int(len(x) * sr / wsr)) * wsr / sr, np.arange(len(x)), x)
+            x = x * (0.8 / (np.abs(x).max() or 1.0))
+            a = int(t * sr)
+            b = min(n, a + len(x))
+            if b <= a:
+                continue
+            out[a:b] += x[: b - a]
+            visemes += said_visemes(text, t, (b - a) / sr)
+        return out, visemes
 
     @staticmethod
     def _layout(sylls: list[Syllable], parts, sr, period, nxt_word):

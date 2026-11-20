@@ -104,3 +104,26 @@ def test_lyrics_without_line_breaks_get_lines():
     assert lines[0] == ["one", "two", "three", "four", "five", "six", "seven,"]
     assert lines[1][-1] == "eleven."
     assert all(len(ln) <= 12 for ln in lines)
+
+
+def test_spoken_lines_and_the_band_coming_in(kar):
+    """Emkay's Swing: lines said, not sung, at their bars; drums, then bass,
+    then the whole band."""
+    s = load(kar("emkay_swing"))
+    assert [round(t) for t, _ in s.spoken][:3] == [0, 10, 19]
+    assert s.spoken[0][1].startswith("Okay")
+    first_sung = s.syllables[0].time
+    bar = 4 * 60 / 140
+    assert 16 * bar <= first_sung < 16.5 * bar          # bar 16 (after a rest)
+    starts = {}
+    for i, tr in enumerate(s.midi.tracks):
+        name = next((m.name for m in tr if m.type == "track_name"), "")
+        t, first = 0, None
+        for m in tr:
+            t += m.time
+            if m.type == "note_on" and m.velocity and first is None:
+                first = t
+        if first is not None:
+            starts[name] = first / s.midi.ticks_per_beat / 4      # in bars
+    assert round(starts["Drums"]) == 4 and round(starts["Bass"]) == 9 and round(starts["Trumpets"]) == 14
+    assert all(x.notes for x in s.syllables)

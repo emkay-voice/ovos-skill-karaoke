@@ -53,15 +53,26 @@ old printed source, not from someone's arrangement), or your own.
    (`"G"`, `"D7"`, `"Am"`) and the lyrics in `w:` lines, a syllable per
    note (`Dai-sy`), plus `%%language`, `%%tags` (for searching, any
    language) and `%%style` (`waltz`, `sleigh`, `disco`, `rocknroll`,
-   `lullaby`, `reggae`, `hymn`, `round`, `nursery`; a new style is a function in `tools/arrange.py`).
+   `lullaby`, `reggae`, `hymn`, `round`, `nursery`, `swing`; a new style is a function in `tools/arrange.py`).
+   A song can also have:
+   - `%%intro <bars>`: bars before the singing (default 2);
+   - `%%enter drums 4, bass 9, band 14`: the band built up part by part
+     (bars from the start; `swing` uses it);
+   - `%%say <bar> <text>`: a line the device says with its normal voice at
+     that bar ("first we need some drums!"). It is written as a cue marker
+     `say:<text>`, which other karaoke players leave alone;
+   - the tag `coaxed`: a song that begins by giving in ("Okay... okay, I'll
+     sing"), sung after "can you sing a song?" - "no" - "come on".
    Hyphenate as the word is spelled: the TTS gets the syllables joined
    (`køk-ke-net`, not `kø-ke-net`).
 2. Other languages: `tools/songs/<name>.<lang>.lyrics` with a `T:` title,
-   `%%language` and the `w:` lines - same melody, a syllable per note.
+   `%%language`, the `w:` lines - same melody, a syllable per note - and the
+   `%%say <text>` lines in the same order (their bars are the song's).
 3. `python tools/arrange.py` writes the .kar files: those in `OFFLINE` to
    `songs/` (shipped), the rest to `songbook/` with `index.json`. A line
    whose syllables don't match its notes stops it, naming the line.
-4. Listen: `stage.prepare()` makes the audio file, as the skill does.
+4. Listen: `stage.prepare()` makes the voice, as the skill does, and
+   ovos-phal-plugin-midi plays the file with it.
 
 The build checks that the .kar files are what `tools/arrange.py` makes from
 the sources, so commit both.

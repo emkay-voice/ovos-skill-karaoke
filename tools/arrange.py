@@ -36,7 +36,7 @@ sys.path.insert(0, str(ROOT))
 from abcnotation import parse  # noqa: E402
 
 TPB = 480
-OFFLINE = {"daisy_bell", "hey_emkay", "goodnight_emkay", "jerusalem", "frere_jacques",
+OFFLINE = {"daisy_bell", "hey_emkay", "goodnight_emkay", "jerusalem", "frere_jacques", "emkay_swing",
            "happy_birthday", "twinkle"}
 INTRO_BARS = 2
 
@@ -353,16 +353,147 @@ def nursery(song, spans, bpb):
     return [celesta, bass, strings, glock], 73    # flute guide melody
 
 
+def _walk(name, nxt, low=36, odd=False):
+    """A walking bass bar: root, third, fifth (or up the scale, every other
+    bar), and a half step into the next chord."""
+    r = bass_note(name, low)
+    q = name[2:] if len(name) > 1 and name[1] in "#b" else name[1:]
+    third = r + (3 if q.startswith("m") and not q.startswith("maj") else 4)
+    n = bass_note(nxt, low)
+    approach = n - 1 if n - 1 != r + 7 else n + 1
+    return [r, r + 2, third, approach] if odd else [r, third, r + 7, approach]
+
+
+def swing(song, spans, bpb):
+    """A big band, swinging: ride cymbal, walking bass, Charleston piano,
+    saxes holding the chords, trumpets and trombones punching. With %%enter
+    it is built up part by part - "first we need some drums!" - drums, then
+    the bass, then BAM, the whole band (bars from the start of the song)."""
+    drums, bass, piano = Part("Drums", 9, 0), Part("Bass", 1, 32), Part("Piano", 2, 0)
+    saxes, trumpets, bones = Part("Saxes", 3, 65), Part("Trumpets", 4, 56), Part("Trombones", 5, 57)
+    enter = getattr(song, "enter", {})
+    d0 = enter.get("drums", 0) * bpb
+    b0 = enter.get("bass", 0) * bpb
+    band = enter.get("band", 0) * bpb
+    melody_at = getattr(song, "intro_bars", INTRO_BARS) * bpb
+    end = spans[-1][1]
+    final = end - bpb                              # the last bar: one big chord
+    t, bar = d0, 0
+    while t < final - 1e-6:
+        first_band_bar = abs(t - band) < 1e-6 and band > 0
+        for beat in range(4):                      # ride: ding, ding-ga-ding
+            drums.note(t + beat, 0.3, 51, 112 if beat % 2 else 100)
+            # the kick: feathered on every beat; on 1 and 3 before the band is in
+            drums.note(t + beat, 0.2, 36, 100 if t < band and beat % 2 == 0 else 62)
+        for off in (1.5, 3.5):                     # the skip notes (swung later)
+            drums.note(t + off, 0.2, 51, 88)
+        drums.note(t + 1, 0.2, 44, 96)             # hi-hat foot on 2 and 4
+        drums.note(t + 3, 0.2, 44, 96)
+        drums.note(t + 1, 0.2, 37, 70)             # and a cross-stick with it
+        drums.note(t + 3, 0.2, 37, 78)
+        if bar % 2 == 1:
+            drums.note(t + 2.5, 0.15, 38, 58)      # snare comps
+            drums.note(t + 3.5, 0.15, 38, 66)
+        next_is_entry = any(abs(t + bpb - x) < 1e-6 for x in (b0, band, melody_at)) and t + bpb > d0
+        if next_is_entry or (t >= band and bar % 8 == 7):
+            for k, off in enumerate((2, 2.5, 3, 3.5)):   # a fill into what comes
+                drums.note(t + off, 0.2, 38, 70 + 8 * k)
+            drums.note(t + 3.5, 0.2, 45, 80)
+        if first_band_bar:
+            drums.note(t, 1.5, 49, 120)            # BAM
+            drums.note(t, 0.3, 36, 115)
+        t += bpb
+        bar += 1
+    drums.note(final, 3.0, 49, 120)
+    drums.note(final, 0.3, 36, 120)
+    for k in range(12):                            # a roll into the last hit
+        drums.note(final - 1 + k / 12, 0.08, 38, 60 + 4 * k)
+
+    for i, (a, b, name) in enumerate(spans):
+        nxt = spans[i + 1][2] if i + 1 < len(spans) else name
+        t = a
+        while t < b - 1e-6 and t < final - 1e-6:
+            if t >= b0:
+                walk = _walk(name, nxt if t + bpb >= b - 1e-6 else name, odd=int(round(t / bpb)) % 2 == 1)
+                for k in range(4):
+                    if t + k < b - 1e-6:
+                        bass.note(t + k, 0.85, walk[k], 92 if k % 2 == 0 else 82)
+            if t >= band:
+                v = voicing(name, 58)
+                for off, d in ((0, 0.4), (1.5, 0.35)):     # Charleston
+                    if t + off < b - 1e-6:
+                        for p in v:
+                            piano.note(t + off, d, p, 64)
+                for p in voicing(name, 62):
+                    saxes.note(t, min(bpb, b - t) * 0.95, p, 46)
+            t += bpb
+    # the band's punches: a hit on the "and" of 4 every other bar, answering
+    # the singer; in the intro a shout riff; at the end the last chord
+    for i, (a, b, name) in enumerate(spans):
+        t = a
+        while t < b - 1e-6 and t < final - 1e-6:
+            if t >= band and t < melody_at:
+                if abs(t - band) < 1e-6:                    # BAM: the whole band
+                    for p in voicing(name, 65) + [voicing(name, 65)[0] + 12]:
+                        trumpets.note(t, 1.2, p, 112)
+                    for p in voicing(name, 50):
+                        bones.note(t, 1.2, p, 104)
+                riff = [(1.5, 0), (2.0, 4), (2.5, 7), (3.5, 9)]
+                root = voicing(name, 65)[0]
+                for off, iv in riff:
+                    trumpets.note(t + off, 0.4, root + iv, 96)
+                    bones.note(t + off, 0.4, root + iv - 12, 84)
+            elif t >= melody_at:
+                bar_no = int(round((t - melody_at) / bpb))
+                if bar_no % 2 == 1:
+                    for p in voicing(name, 65):
+                        trumpets.note(t + 3.5, 0.3, p, 84)
+                    for p in voicing(name, 50):
+                        bones.note(t + 3.5, 0.3, p, 76)
+            t += bpb
+    last = spans[-1][2]
+    for p in voicing(last, 65) + [voicing(last, 65)[0] + 12]:
+        trumpets.note(final, 3.0, p, 110)
+    for p in voicing(last, 50):
+        bones.note(final, 3.0, p, 100)
+    for p in voicing(last, 58):
+        saxes.note(final, 3.0, p, 80)
+        piano.note(final, 3.0, p, 80)
+    bass.note(final, 3.0, bass_note(last, 29), 100)
+    return [drums, bass, piano, saxes, trumpets, bones], 59    # muted trumpet guide melody
+
+
 STYLES = {"waltz": waltz, "sleigh": sleigh, "disco": disco,
           "rocknroll": rocknroll, "lullaby": lullaby, "reggae": reggae, "hymn": hymn,
-          "round": round_, "nursery": nursery}
-SWING = {"rocknroll"}
+          "round": round_, "nursery": nursery, "swing": swing}
+SWING = {"rocknroll", "swing"}
+
+
+def directives(text: str):
+    """The arrangement's own lines: %%intro <bars> (before the singing,
+    default 2), %%enter <part> <bar>, ... (when the band's parts come in, in
+    bars from the start), %%say <bar> <text> (a line the device says, not
+    sings, at that bar)."""
+    intro, enter, say = INTRO_BARS, {}, []
+    for ln in text.splitlines():
+        if ln.startswith("%%intro"):
+            intro = int(ln.split()[1])
+        elif ln.startswith("%%enter"):
+            for item in ln[len("%%enter"):].split(","):
+                part, bar = item.split()
+                enter[part] = float(bar)
+        elif ln.startswith("%%say"):
+            _, bar, words = ln.split(None, 2)
+            say.append((float(bar), words.strip()))
+    return intro, enter, say
 
 
 def with_lyrics(abc: str, lyrics: str) -> str:
-    """The ABC source with its title, language and w: lines from a .lyrics file."""
+    """The ABC source with its title, language, w: lines and %%say lines
+    from a .lyrics file (its %%say lines replace the song's, in order, at the
+    same bars: "%%say <text>")."""
     lang = None
-    title, words = None, []
+    title, words, says = None, [], []
     for ln in lyrics.splitlines():
         if ln.startswith("T:"):
             title = ln
@@ -370,9 +501,16 @@ def with_lyrics(abc: str, lyrics: str) -> str:
             lang = ln
         elif ln.startswith("w:"):
             words.append(ln)
-    out, wi = [], 0
+        elif ln.startswith("%%say"):
+            says.append(ln[len("%%say"):].strip())
+    out, wi, si = [], 0, 0
     for ln in abc.splitlines():
-        if ln.startswith("w:"):
+        if ln.startswith("%%say") and says:
+            if si >= len(says):
+                raise ValueError("fewer %%say lines than the song has")
+            ln = f"%%say {ln.split()[1]} {says[si]}"
+            si += 1
+        elif ln.startswith("w:"):
             if wi >= len(words):
                 raise ValueError("fewer w: lines than the song has")
             ln = words[wi]
@@ -384,6 +522,8 @@ def with_lyrics(abc: str, lyrics: str) -> str:
         out.append(ln)
     if wi != len(words):
         raise ValueError("more w: lines than the song has")
+    if says and si != len(says):
+        raise ValueError("more %%say lines than the song has")
     return "\n".join(out)
 
 
@@ -411,7 +551,8 @@ def arrange(src: Path, lyrics: Path | None = None) -> tuple[bytes, dict]:
     check_fit(text, (lyrics or src).name)
     song = parse(text)
     bpb = song.beats_per_bar
-    offset = INTRO_BARS * bpb
+    song.intro_bars, song.enter, says = directives(text)
+    offset = song.intro_bars * bpb
     end = offset + song.length_beats + bpb            # one bar to finish
     spans = chord_spans(song, offset, end)
     parts, guide_prog = STYLES[song.style](song, spans, bpb)
@@ -489,6 +630,9 @@ def arrange(src: Path, lyrics: Path | None = None) -> tuple[bytes, dict]:
         last = tick
     chords.append(mido.MetaMessage("end_of_track", time=0))
     mid.tracks.append(chords)
+    if says:
+        from song import spoken_track
+        mid.tracks.append(spoken_track([(int(round(bar * bpb * TPB)), words) for bar, words in says]))
     for p in parts:
         mid.tracks.append(p.track())
     import io
