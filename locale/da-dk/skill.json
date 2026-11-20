@@ -1,0 +1,23 @@
+{
+  "skill_id": "ovos-skill-karaoke.emkay-voice",
+  "source": "https://github.com/emkay-voice/ovos-skill-karaoke",
+  "package_name": "ovos-skill-karaoke",
+  "pip_spec": "ovos-skill-karaoke",
+  "license": "Apache-2.0",
+  "author": "emkay-voice",
+  "name": "Karaoke",
+  "description": "Synger sange med enhedens egen stemme, autotunet på melodien med et band bagved - eller spiller karaoke for dig, med tekst, akkorder og melodi på skærmen. Kører på enheden; dine egne .kar-filer er velkomne.",
+  "examples": [
+    "syng Daisy Bell",
+    "karaoke Jingle Bells",
+    "syng en sang",
+    "hvilke sange kan du synge"
+  ],
+  "tags": [
+    "karaoke",
+    "sang",
+    "musik",
+    "sjov"
+  ],
+  "icon": "https://raw.githubusercontent.com/emkay-voice/ovos-skill-karaoke/main/icon.png"
+}

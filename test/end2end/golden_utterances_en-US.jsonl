@@ -1,0 +1,6 @@
+{"utterance": "sing daisy bell", "lang": "en-US", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "sing"}
+{"utterance": "sing me jingle bells", "lang": "en-US", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "sing"}
+{"utterance": "sing a song", "lang": "en-US", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "sing_any"}
+{"utterance": "karaoke hey emkay", "lang": "en-US", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "karaoke"}
+{"utterance": "start karaoke", "lang": "en-US", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "karaoke_any"}
+{"utterance": "what songs can you sing", "lang": "en-US", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "list_songs"}

@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ovos-skill-karaoke"
+version = "0.1.0a1"
+description = "OVOS sings: songs in the device's own voice, autotuned onto the melody with a band - or karaoke for you, with words, chords and melody on the screen. Runs on the device."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [{name = "Andreas Lorensen"}]
+requires-python = ">=3.10"
+keywords = ["ovos", "openvoiceos", "skill", "voice", "assistant", "karaoke", "singing", "music", "midi", "kar", "emkay"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: End Users/Desktop",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Sound/Audio :: MIDI",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+dependencies = [
+    "ovos-workshop>=0.0.15,<10.0.0",
+    "numpy",
+    "mido>=1.3",
+    "requests",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://github.com/emkay-voice/ovos-skill-karaoke"
+Issues = "https://github.com/emkay-voice/ovos-skill-karaoke/issues"
+Emkay = "https://github.com/emkay-voice/emkay"
+Icon = "https://raw.githubusercontent.com/emkay-voice/ovos-skill-karaoke/main/icon.png"
+
+[project.entry-points."opm.skill"]
+"ovos-skill-karaoke.emkay-voice" = "ovos_skill_karaoke:KaraokeSkill"
+
+[tool.setuptools]
+packages = ["ovos_skill_karaoke"]
+
+[tool.setuptools.package-dir]
+ovos_skill_karaoke = ""
+
+[tool.setuptools.package-data]
+ovos_skill_karaoke = ["locale/**/*", "songs/*.kar", "*.png"]
+

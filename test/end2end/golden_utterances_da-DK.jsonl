@@ -1,0 +1,5 @@
+{"utterance": "syng daisy bell", "lang": "da-DK", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "sing"}
+{"utterance": "syng en sang", "lang": "da-DK", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "sing_any"}
+{"utterance": "karaoke jingle bells", "lang": "da-DK", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "karaoke"}
+{"utterance": "start karaoke", "lang": "da-DK", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "karaoke_any"}
+{"utterance": "hvilke sange kan du synge", "lang": "da-DK", "skill_id": "ovos-skill-karaoke.emkay-voice", "intent_label": "list_songs"}
