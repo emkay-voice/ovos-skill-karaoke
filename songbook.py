@@ -64,8 +64,7 @@ def title_from_file(path: Path) -> str:
 
 def kar_info(path: Path) -> dict:
     """Title, language, tags and lyric words of a .kar file: @T, @L and
-    "@Itags:" lines, else the first track's name and the file name's
-    .<lang> part."""
+    "@Itags:" lines, else a track's name and the file name's .<lang> part."""
     info = {"title": "", "language": "", "tags": (), "words": frozenset()}
     parts = path.name.split(".")
     if len(parts) > 2 and len(parts[-2]) == 2:
@@ -88,10 +87,12 @@ def kar_info(path: Path) -> dict:
                 info["language"] = {"engl": "en", "eng": "en"}.get(lang, lang[:2])
             elif m.text.lower().startswith("@itags:"):
                 info["tags"] = tuple(t.strip().lower() for t in m.text[7:].split(",") if t.strip())
-    if not info["title"]:
-        for m in mid.tracks[0] if mid.tracks else []:
-            if m.type == "track_name" and m.name.strip():
-                info["title"] = m.name.strip()
+    if not info["title"]:     # as song.load: the first track's name, else a named track without notes
+        for tr in mid.tracks:
+            name = next((m.name.strip() for m in tr if m.type == "track_name"), "")
+            if name and (tr is mid.tracks[0] or not any(m.type == "note_on" for m in tr)) \
+                    and "copyright" not in name.lower() and "://" not in name:
+                info["title"] = name
                 break
     words, cur = set(), ""
     for syl in _parse_syllables(_lyric_events(mid, lambda tick: tick)):

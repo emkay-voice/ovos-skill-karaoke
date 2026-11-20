@@ -177,6 +177,24 @@ def _parse_syllables(events) -> list[Syllable]:
     return out
 
 
+def _break_lines(syllables, longest=12):
+    """Lyrics with no line breaks (common with FF 05 lyrics): a line ends at
+    . ! ?, and a long one at a comma (6+ syllables on it, 4+ left), or else
+    at a word once it has `longest` syllables."""
+    if sum(s.line_start for s in syllables) > 1:
+        return
+    count = 0
+    for i, s in enumerate(syllables):
+        if i and s.word_start:
+            prev = syllables[i - 1].text
+            left = sum(1 for x in syllables[i:i + 8])
+            if prev[-1:] in ".!?" or (prev[-1:] in ",;:" and count >= 6 and left >= 4) \
+                    or count >= longest:
+                s.line_start = True
+                count = 0
+        count += 1
+
+
 def _track_notes(mid: mido.MidiFile, sec):
     """{track: [Note]} for melodic tracks (drums left out)."""
     out = {}
@@ -350,6 +368,14 @@ def load(data: bytes, title: str = "", language: str = "") -> Song:
                 elif txt.startswith("@L") and not language:
                     language = txt[2:].strip().lower()[:2]
     syllables = _parse_syllables(_lyric_events(mid, sec))
+    _break_lines(syllables)
+    if not title:      # no @T: the first track's name, else a named track without notes
+        for tr in mid.tracks:
+            name = next((m.name.strip() for m in tr if m.type == "track_name"), "")
+            if name and (tr is mid.tracks[0] or not any(m.type == "note_on" for m in tr)) \
+                    and "copyright" not in name.lower() and "://" not in name:
+                title = name
+                break
     tracks = _track_notes(mid, sec)
     mel = _melody_track(tracks, syllables)
     if mel is not None:

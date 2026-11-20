@@ -72,3 +72,27 @@ def test_words_track_round_trip():
     texts = [m.text for m in tr if m.type == "text"]
     assert texts[:4] == ["@KMIDI KARAOKE FILE", "@V0100", "@LEN", "@TDaisy"]
     assert texts[4:] == ["\\Dai", "sy", "/give"]
+
+
+def test_lyrics_without_line_breaks_get_lines():
+    """MIDI lyric events (FF 05) with words but no line breaks, and the title
+    only as a track's name: lines are made at sentences and long commas."""
+    mid = mido.MidiFile(ticks_per_beat=96)
+    mid.tracks.append(mido.MidiTrack([mido.MetaMessage("track_name", name="")]))
+    mid.tracks.append(mido.MidiTrack([mido.MetaMessage("track_name", name="A Long Song")]))
+    words = ("one two three four five six seven, eight nine ten eleven. "
+             "twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()
+    mel = mido.MidiTrack()
+    for w in words:
+        mel.append(mido.MetaMessage("lyrics", text=w + " ", time=0))
+        mel.append(mido.Message("note_on", note=60, velocity=80, time=0))
+        mel.append(mido.Message("note_off", note=60, time=96))
+    mid.tracks.append(mel)
+    buf = io.BytesIO()
+    mid.save(file=buf)
+    s = load(buf.getvalue())
+    assert s.title == "A Long Song"
+    lines = [[x.text for x in ln] for ln in s.lines]
+    assert lines[0] == ["one", "two", "three", "four", "five", "six", "seven,"]
+    assert lines[1][-1] == "eleven."
+    assert all(len(ln) <= 12 for ln in lines)
