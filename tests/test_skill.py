@@ -1,8 +1,11 @@
+import base64
 import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
+from ovos_bus_client.message import Message
 
 import ovos_skill_karaoke as sk
 from ovos_skill_karaoke.singer import Singer
@@ -12,19 +15,26 @@ ROOT = Path(sk.__file__).resolve().parent
 
 @pytest.fixture
 def skill(tmp_path, monkeypatch, speak):
-    monkeypatch.setattr(sk, "START_WAIT", 0.01)
+    monkeypatch.setattr(sk, "START_AFTER", 0.05)
     s = sk.KaraokeSkill.__new__(sk.KaraokeSkill)
     s.log = MagicMock()
     s.skill_id = "ovos-skill-karaoke.test"
     monkeypatch.setattr(sk.KaraokeSkill, "lang", "en-us", raising=False)
     monkeypatch.setattr(sk.KaraokeSkill, "file_system", MagicMock(path=str(tmp_path)), raising=False)
-    monkeypatch.setattr(sk.KaraokeSkill, "bus", MagicMock(), raising=False)
+    bus = MagicMock()
+    bus.band = {"engine": "builtin", "latency": 0.05, "clips": True}   # ovos-phal-plugin-midi's answer
+
+    def answer(msg, reply, timeout=None):
+        if msg.msg_type == "ovos.midi.status":
+            return Message(reply, bus.band) if bus.band else None
+        return Message(reply, {"at": msg.data.get("at"), "duration": 1.0})
+    bus.wait_for_response.side_effect = answer
+    monkeypatch.setattr(sk.KaraokeSkill, "bus", bus, raising=False)
     monkeypatch.setattr(sk.KaraokeSkill, "gui", MagicMock(), raising=False)
     monkeypatch.setattr(sk.KaraokeSkill, "settings", {"songbook_url": ""}, raising=False)
     monkeypatch.setattr(sk.KaraokeSkill, "dialog_renderer",
                         MagicMock(render=lambda name, data: "and"), raising=False)
     s.status = MagicMock()
-    s.audio_service = MagicMock()
     s.get_response = MagicMock(return_value=None)
     s.ask_yesno = MagicMock(return_value=None)
 
@@ -39,6 +49,21 @@ def skill(tmp_path, monkeypatch, speak):
     s.stop()
 
 
+def sent(skill, msg_type):
+    return [c[0][0].data for c in skill.bus.emit.call_args_list if c[0][0].msg_type == msg_type]
+
+
+def played(skill):
+    """What the band was given last (ovos.midi.play), or None."""
+    p = sent(skill, "ovos.midi.play")
+    return p[-1] if p else None
+
+
+def title(skill):
+    return [c[0][1]["song"] for c in skill.speak_dialog.call_args_list
+            if c[0][0] in ("warming_up", "setting_up")][-1]
+
+
 def test_unknown_song(skill):
     skill.handle_sing(MagicMock(data={"song": "yellow submarine"}))
     name, data = skill.speak_dialog.call_args[0]
@@ -48,42 +73,58 @@ def test_unknown_song(skill):
 def test_sings_a_song(skill):
     skill.handle_sing(MagicMock(data={"song": "the disco song"}))
     assert skill.speak_dialog.call_args_list[0][0][0] == "warming_up"
-    entry = skill.audio_service.play.call_args[0][0][0]
-    assert entry.uri.startswith("file://") and Path(entry.uri[7:]).stat().st_size > 100000
-    assert entry.title == "Hey Emkay"
-    sent = [c[0][0].msg_type for c in skill.bus.emit.call_args_list]
-    assert "enclosure.mouth.viseme_list" in sent
-    time.sleep(0.3)
+    assert title(skill) == "Hey Emkay"
+    play = played(skill)
+    clip = [c[0][0].data for c in skill.bus.wait_for_response.call_args_list
+            if c[0][0].msg_type == "ovos.midi.clip"][-1]
+    assert play["at"] == clip["at"] and play["source"] == clip["source"] == skill.skill_id
+    assert Path(clip["path"]).stat().st_size > 100000                # the sung voice
+    assert play["mute"] and base64.b64decode(play["data"])[:4] == b"MThd"
+    time.sleep(0.4)
     assert sk.LYRICS_MSG in [c[0][0].msg_type for c in skill.bus.emit.call_args_list]
+    assert sent(skill, "enclosure.mouth.viseme_list")
     assert skill.stop() is True
-    skill.audio_service.stop.assert_called_once()
+    assert sent(skill, "ovos.midi.stop") == [{"source": skill.skill_id}]
     assert skill.stop() is False
 
 
-def test_second_time_is_cached(skill):
+def test_karaoke_plays_the_whole_band(skill):
     skill.handle_karaoke(MagicMock(data={"song": "daisy"}))
-    first = skill.audio_service.play.call_args[0][0][0].uri
+    play = played(skill)
+    assert play["mute"] == [] and play["transpose"] == 0
+    assert not [c for c in skill.bus.wait_for_response.call_args_list if c[0][0].msg_type == "ovos.midi.clip"]
+
+
+def test_the_voice_is_kept(skill):
+    skill.handle_sing(MagicMock(data={"song": "daisy"}))
     skill.stop()
     t = time.monotonic()
-    skill.handle_karaoke(MagicMock(data={"song": "daisy bell"}))
-    assert skill.audio_service.play.call_args[0][0][0].uri == first
+    skill.handle_sing(MagicMock(data={"song": "daisy bell"}))
     assert time.monotonic() - t < 1.0
 
 
-def test_classic_audio_service_when_ocp_does_not_play(skill):
-    """OCP in "legacy" mode (Emkay, installs without ovos-media) plays
-    nothing on ovos.common_play.play: then ovos-audio's AudioService."""
+def test_no_band_no_song(skill):
+    """Without ovos-phal-plugin-midi answering, it says so and plays nothing."""
+    skill.bus.band = None
     skill.handle_sing(MagicMock(data={"song": "daisy"}))
-    sent = [c[0][0] for c in skill.bus.emit.call_args_list]
-    play = [m for m in sent if m.msg_type == "mycroft.audio.service.play"]
-    assert play and play[0].data["tracks"][0].startswith("file://")
-    skill.stop()
-    assert "mycroft.audio.service.stop" in [c[0][0].msg_type for c in skill.bus.emit.call_args_list]
+    skill.speak_dialog.assert_called_with("no_midi")
+    assert played(skill) is None
+
+
+def test_voice_sent_itself_when_the_plugin_cannot_read_it(skill):
+    def answer(msg, reply, timeout=None):
+        if msg.msg_type == "ovos.midi.status":
+            return Message(reply, skill.bus.band)
+        return Message(reply, {"error": "No such file"})
+    skill.bus.wait_for_response.side_effect = answer
+    skill.handle_sing(MagicMock(data={"song": "daisy"}))
+    clip = sent(skill, "ovos.midi.clip")[-1]
+    assert "path" not in clip and base64.b64decode(clip["data"])[:4] == b"RIFF"
 
 
 def test_karaoke_shows_the_sheet(skill):
     skill.handle_karaoke(MagicMock(data={"song": "daisy"}))
-    time.sleep(0.3)
+    time.sleep(0.4)
     skill.gui.show_page.assert_called_with("SYSTEM_ImageFrame", override_idle=True)
 
 
@@ -93,7 +134,7 @@ def test_a_song_read_as_a_name_is_the_shy_question(skill):
     skill.get_response.return_value = "come on"
     skill.handle_sing(MagicMock(data={"song": "a song"}))
     assert skill.get_response.call_args[0][0] == "shy"
-    assert skill.audio_service.play.called
+    assert played(skill)
 
 
 def test_locales_match():
@@ -114,20 +155,20 @@ def test_shy_then_sings_when_encouraged(skill):
     skill.handle_sing_any(MagicMock(data={}))
     assert skill.get_response.call_args[0][0] == "shy"
     assert [c[0][0] for c in skill.speak_dialog.call_args_list][:2] == ["okay_then", "warming_up"]
-    assert skill.audio_service.play.called
+    assert played(skill)
 
 
 def test_shy_and_stays_shy(skill):
     skill.get_response.return_value = "no it's fine"
     skill.handle_sing_any(MagicMock(data={}))
     skill.speak_dialog.assert_called_with("maybe_later")
-    assert not skill.audio_service.play.called
+    assert played(skill) is None
 
 
 def test_not_shy_right_after_singing(skill):
     skill._last_sung = time.time()
     skill.handle_sing_any(MagicMock(data={}))
-    assert not skill.get_response.called and skill.audio_service.play.called
+    assert not skill.get_response.called and played(skill)
 
 
 def test_find_a_song(skill):
@@ -135,14 +176,14 @@ def test_find_a_song(skill):
     skill.handle_find(MagicMock(data={"query": "lullaby"}))
     assert skill.ask_yesno.call_args[0][1] == {"song": "Goodnight from Emkay"}
     skill.gui.show_page.assert_any_call("SYSTEM_grid", override_idle=60)
-    assert skill.audio_service.play.call_args[0][0][0].title == "Goodnight from Emkay"
+    assert title(skill) == "Goodnight from Emkay"
 
 
 def test_find_many_and_pick_one(skill):
     skill.get_response.return_value = "the disco one"
     skill.handle_find(MagicMock(data={"query": "emkay"}))
     assert skill.get_response.call_args[0][0] == "found_many"
-    assert skill.audio_service.play.call_args[0][0][0].title == "Hey Emkay"
+    assert title(skill) == "Hey Emkay"
 
 
 def test_nothing_found(skill):

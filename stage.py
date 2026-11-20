@@ -1,36 +1,49 @@
-"""Gets a song ready to perform: one audio file, made once and then cached.
+"""Gets a song ready to perform.
 
-  sing      Emkay sings: the band without the melody track, in a key that
-            suits the voice, plus the voice (singer.py)
+The band is ovos-phal-plugin-midi, the device's MIDI instrument: it is given
+the song's file and plays it (built-in synth, FluidSynth, or a real
+instrument), so nothing has to be rendered first.
+
+  sing      Emkay sings: the band without the melody, in a key that suits
+            the voice, and the voice (singer.py) as a clip the instrument
+            plays in time with it. The voice is made once and kept (keyed by
+            the song and the voice), with the key used and the mouth
+            movements, which the face needs
   karaoke   you sing: the band with the melody as a guide, in the song's key
-
-The file is kept (keyed by the song, the mode and the voice), so the second
-time a song starts at once. Next to it: the key used and the mouth
-movements, which the screen and the face need.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import wave
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 
-from . import band
 from .song import Song, load
 
-VERSION = "1"   # bump when the sound changes, so old files are made again
+VERSION = "2"   # bump when the voice changes, so old ones are made again
+SR = 24000
 
 
 @dataclass
 class Performance:
     song: Song
-    path: Path
     mode: str
-    transpose: int
-    visemes: list
+    data: bytes                    # the song's file, for the band
+    vocal: Path | None = None      # the sung voice (WAV), in sing mode
+    transpose: int = 0             # the band's, in semitones
+    visemes: list = field(default_factory=list)
+    mute: list = field(default_factory=list)   # the melody's channels, while Emkay sings it
+
+
+def melody_channels(song: Song) -> list:
+    """The channels the melody track plays on."""
+    if song.melody_track is None:
+        return []
+    return sorted({m.channel for m in song.midi.tracks[song.melody_track]
+                   if m.type == "note_on" and m.channel != 9})
 
 
 def _write_wav(path: Path, x: np.ndarray, sr: int):
@@ -42,27 +55,19 @@ def _write_wav(path: Path, x: np.ndarray, sr: int):
 
 
 def prepare(data: bytes, mode: str, cache_dir: Path, singer=None, voice_id: str = "",
-            soundfont: str = "", title: str = "", progress=None) -> Performance:
+            title: str = "", progress=None) -> Performance:
     song = load(data, title=title)
-    key = hashlib.sha1(data + f"|{mode}|{voice_id}|{VERSION}".encode()).hexdigest()[:16]
+    if mode != "sing":
+        return Performance(song, mode, data)
+    key = hashlib.sha1(data + f"|{voice_id}|{VERSION}".encode()).hexdigest()[:16]
     cache_dir.mkdir(parents=True, exist_ok=True)
     path, meta = cache_dir / f"{key}.wav", cache_dir / f"{key}.json"
     if path.exists() and meta.exists():
         m = json.loads(meta.read_text())
-        return Performance(song, path, mode, m["transpose"], m["visemes"])
-
-    if mode == "sing":
-        vocal, visemes, (transpose, _octave) = singer.sing(song, band.SR, progress=progress)
-        skip = {song.melody_track} if song.melody_track is not None else set()
-        backing = band.render(band.transposed(song.midi, transpose), skip, soundfont)
-        n = max(len(backing), len(vocal))
-        mix = np.zeros(n)
-        mix[:len(backing)] += 0.5 * backing
-        mix[:len(vocal)] += 0.8 * vocal
     else:
-        transpose, visemes = 0, []
-        mix = band.render(song.midi, (), soundfont)
-    mix *= 0.9 / (np.abs(mix).max() or 1.0)
-    _write_wav(path, mix, band.SR)
-    meta.write_text(json.dumps({"transpose": transpose, "visemes": visemes}))
-    return Performance(song, path, mode, transpose, visemes)
+        vocal, visemes, (transpose, _octave) = singer.sing(song, SR, progress=progress)
+        vocal = vocal * (0.8 / (np.abs(vocal).max() or 1.0))
+        _write_wav(path, vocal, SR)
+        m = {"transpose": transpose, "visemes": visemes}
+        meta.write_text(json.dumps(m))
+    return Performance(song, mode, data, path, m["transpose"], m["visemes"], melody_channels(song))

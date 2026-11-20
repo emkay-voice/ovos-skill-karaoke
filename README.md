@@ -6,10 +6,11 @@ chords and the melody on the screen.
 
 Songs are ordinary MIDI-karaoke files (`.kar`). A few come with the skill,
 more are in the online songbook, and your own `.kar` files are welcome.
-Everything is made on the device in Python - the voice is the device's own
-TTS, the band a small General MIDI synthesizer - so nothing is sent anywhere
-and it works on any [OpenVoiceOS](https://openvoiceos.org): a Mark II, a
-Raspberry Pi, a PC, Docker, or [Emkay](https://github.com/emkay-voice/emkay)
+Everything is made on the device. The voice is the device's own TTS, sung in
+Python. The band is [ovos-phal-plugin-midi](https://github.com/emkay-voice/ovos-phal-plugin-midi),
+the device's MIDI instrument, which comes with the skill. Nothing is sent
+anywhere, and it works on any [OpenVoiceOS](https://openvoiceos.org): a
+Mark II, a Raspberry Pi, a PC, Docker, or [Emkay](https://github.com/emkay-voice/emkay)
 in a browser, where it was made.
 
 [![Build](https://github.com/emkay-voice/ovos-skill-karaoke/actions/workflows/publish.yml/badge.svg)](https://github.com/emkay-voice/ovos-skill-karaoke/actions/workflows/publish.yml)
@@ -143,22 +144,31 @@ singing *Daisy Bell* is charming rather than correct.
   the face - Emkay does. With `sing_screen` set to `lyrics` the words are
   shown as in karaoke instead.
 
-## Sound
+## The band
 
-The band is a General MIDI synthesizer in numpy: an instrument for each GM
-family (piano, electric piano, clavinet, bells, organ, accordion, guitar,
-bass, strings, brass, reeds, flutes, synth leads, pads) and a drum kit, with
-a little room reverb. It needs nothing installed.
+The band is [ovos-phal-plugin-midi](https://github.com/emkay-voice/ovos-phal-plugin-midi).
+It is installed with the skill and runs in OVOS' PHAL service, so restart
+OpenVoiceOS once after installing (Emkay starts it by itself). Until then the
+skill says its band isn't ready.
 
-If the device has [FluidSynth](https://www.fluidsynth.org) and a General MIDI
-SoundFont, the band uses those instead - real instrument samples:
+The skill gives it the song's file, and when the device sings, the sung
+voice as well, both to start at the same moment. The plugin plays them from
+one output, in time with each other, and turns them down while OVOS speaks
+or listens. Nothing is rendered first, so a song starts at once. The first
+time a song is sung takes longer, because the voice is made first. After
+that it is kept.
+
+How it sounds is up to the plugin. Its own synth needs nothing installed.
+With [FluidSynth](https://www.fluidsynth.org) and a General MIDI SoundFont it
+uses real instrument samples:
 
 ```bash
+pip install "ovos-phal-plugin-midi[fluidsynth]"
 sudo apt install fluidsynth fluid-soundfont-gm
 ```
 
-The SoundFont is looked for where distributions install one, or set with
-`soundfont`.
+It can also play on a real instrument plugged into the device. See the
+plugin's README.
 
 ## Settings
 
@@ -166,15 +176,7 @@ The SoundFont is looked for where distributions install one, or set with
 |---|---|---|
 | `songbook_url` | this repository's `songbook/` | the online songbook; empty = offline only |
 | `song_folders` | `[]` | more folders with your own `.kar` files |
-| `soundfont` | | a `.sf2` for FluidSynth, if it isn't found by itself |
 | `sing_screen` | `face` | `face`: the face sings; `lyrics`: show the words |
-
-## Playback
-
-The song is played through OCP like any other music (`stop`, `pause` and the
-volume work as usual), as one audio file the skill made. On Docker setups
-the skill and ovos-audio must share the skill's data folder for the player
-to find that file.
 
 ## Install
 ```bash

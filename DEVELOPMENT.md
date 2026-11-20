@@ -21,8 +21,9 @@ and the pitch can be checked without Piper. They check that every shipped
 song reads with its melody track found and every syllable on a note, that
 Jingle Bells' chords are recognised from the band, that a foreign-style .kar
 (other markers, cp1252 text, melody on another track) reads, that the singer
-lands within half a semitone on its notes, that every GM instrument family
-and drum sounds, and the skill's sing / karaoke / stop / cache flow.
+lands within half a semitone on its notes, and the skill's sing / karaoke /
+stop / cache flow, with what it sends the MIDI plugin (the band and the voice
+at the same moment, the melody muted while it sings).
 
 ## The pieces
 
@@ -32,14 +33,15 @@ and drum sounds, and the skill's sing / karaoke / stop / cache flow.
 | `nuclei.py` | finds the syllables in a spoken word (any TTS) |
 | `singer.py` | puts the words on the notes: key, layout, visemes |
 | `dsp.py` | YIN pitch, pitch marks, TD-PSOLA (numpy only) |
-| `band.py` | General MIDI to audio: FluidSynth if installed, else numpy instruments |
-| `stage.py` | one audio file per song, mode and voice, cached |
+| `stage.py` | a song made ready: the sung voice (cached), the band's key and muted melody |
 | `sheet.py` | the karaoke screen as SVG |
 | `songbook.py` | own, shipped and online songs; matching titles |
 | `voice.py` | the device's TTS: ovos-audio over the bus, or the plugin |
 | `tools/arrange.py` | ABC sources -> .kar files |
 
-Everything is numpy and pure Python (mido), so it also runs in Pyodide.
+Everything is numpy and pure Python (mido), so it also runs in Pyodide. The
+band is [ovos-phal-plugin-midi](https://github.com/emkay-voice/ovos-phal-plugin-midi),
+spoken to over the bus (`ovos.midi.play`, `ovos.midi.clip`, `ovos.midi.stop`).
 
 ## Adding a song to the songbook
 

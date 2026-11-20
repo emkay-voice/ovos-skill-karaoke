@@ -10,24 +10,25 @@
 
 Songs are MIDI-karaoke (.kar) files: a few ship with the skill, more come
 from the online songbook, and your own go in the skill's `songs` folder.
-Everything runs on the device in Python (numpy): the voice is the device's
-own TTS, the band a small General MIDI synthesizer (or FluidSynth, if
-installed), so it works on any OVOS - a Mark II, a Raspberry Pi, a PC,
-Docker, or Emkay in a browser.
+Everything runs on the device: the voice is the device's own TTS, sung in
+Python (numpy); the band is ovos-phal-plugin-midi, the device's MIDI
+instrument (its own synth, FluidSynth, or a real instrument), which plays
+the song's file and the voice in time with it. So it works on any OVOS - a
+Mark II, a Raspberry Pi, a PC, Docker, or Emkay in a browser.
 
 The pieces: song.py (reading .kar), nuclei.py + singer.py + dsp.py (the
-singing voice), band.py (the band), stage.py (mixing and the cache),
+singing voice), stage.py (getting a song ready, the voice's cache),
 sheet.py (the screen), songbook.py (finding songs), voice.py (the TTS).
 """
 from __future__ import annotations
 
+import base64
 import random
 import threading
 import time
 from pathlib import Path
 
 from ovos_bus_client.message import Message
-from ovos_utils.ocp import MediaEntry, MediaType, PlaybackType
 from ovos_workshop.decorators import intent_handler
 from ovos_workshop.skills import OVOSSkill
 
@@ -35,12 +36,12 @@ from . import sheet, songbook, stage
 from .singer import Singer
 from .voice import device_voice, voice_id
 
-SKILL_ROOT = Path(__file__).resolve().parent
 SONGBOOK_URL = "https://raw.githubusercontent.com/emkay-voice/ovos-skill-karaoke/main/songbook/"
 #: hosts may show the words, e.g. under the face while the device sings
 LYRICS_MSG = "ovos.karaoke.lyrics"
 ENDED_MSG = "ovos.karaoke.ended"
-START_WAIT = 3.0          # seconds to wait for the player to say it started
+MIDI_WAIT = 3.0           # seconds to wait for the MIDI plugin to answer
+START_AFTER = 1.0         # the song starts this long after it is sent (plus the plugin's latency)
 SHY_AFTER = 3600          # shy again when it hasn't sung for an hour
 
 
@@ -49,7 +50,6 @@ class KaraokeSkill(OVOSSkill):
     def initialize(self):
         self.settings.setdefault("songbook_url", SONGBOOK_URL)
         self.settings.setdefault("song_folders", [])
-        self.settings.setdefault("soundfont", "")
         self.settings.setdefault("sing_screen", "face")    # or "lyrics"
         self._singers = {}
         self._run = None          # threading.Event of the running performance
@@ -176,6 +176,10 @@ class KaraokeSkill(OVOSSkill):
             self.speak_dialog("unknown_song", {"song": name, "songs": self._join(local[:5])})
             return
         self.stop()
+        band = self._band()
+        if not band or (mode == "sing" and not band.get("clips")):
+            self.speak_dialog("no_midi")
+            return
         title = songbook.short_title(entry.title)
         self.speak_dialog("warming_up" if mode == "sing" else "setting_up", {"song": title}, wait=True)
         try:
@@ -186,7 +190,16 @@ class KaraokeSkill(OVOSSkill):
             return
         if mode == "sing":
             self._last_sung = time.time()
-        self._perform(perf, title)
+        self._perform(perf, title, band)
+
+    def _band(self):
+        """ovos-phal-plugin-midi's status, or None when it doesn't answer
+        (not installed, or not started yet: OVOS' PHAL service starts it)."""
+        r = self.bus.wait_for_response(Message("ovos.midi.status"), "ovos.midi.status.response",
+                                       timeout=MIDI_WAIT)
+        if r is None or r.data.get("engine") in (None, "none"):
+            return None
+        return r.data
 
     def _singer(self) -> Singer:
         vid = voice_id(self.lang)
@@ -198,36 +211,28 @@ class KaraokeSkill(OVOSSkill):
         data = self._song_bytes(entry)
         singer = self._singer() if mode == "sing" else None
         return stage.prepare(data, mode, Path(self.file_system.path) / "cache", singer=singer,
-                             voice_id=voice_id(self.lang) if singer else "",
-                             soundfont=self.settings.get("soundfont", ""), title=entry.title)
+                             voice_id=voice_id(self.lang) if singer else "", title=entry.title)
 
-    def _perform(self, perf, title):
+    def _perform(self, perf, title, band):
+        """The band (the song's file) and, when Emkay sings, the voice (a
+        clip): sent to the MIDI plugin to start at the same moment."""
         run = threading.Event()
         with self._lock:
             self._run = run
-        started = threading.Event()
-
-        def on_start(_):
-            started.set()
-        for ev in ("mycroft.audio.playing_track", "ovos.common_play.track.state",
-                   "ovos.audio.browser.state"):
-            self.bus.once(ev, on_start)
-
-        entry = MediaEntry(uri=f"file://{perf.path}", title=title, artist="Karaoke",
-                           media_type=MediaType.MUSIC, playback=PlaybackType.AUDIO,
-                           skill_id=self.skill_id, skill_icon=str(SKILL_ROOT / "icon.png"),
-                           image=str(SKILL_ROOT / "icon.png"), length=int(perf.song.length * 1000))
-        self.audio_service.play([entry])
-        self._classic = False
-        if not started.wait(START_WAIT):
-            # nobody plays OCP's own ovos.common_play.play here: OCP is in
-            # "legacy" mode (no ovos-media - Emkay, many installs), where
-            # ovos-audio's AudioService is the player
-            self._classic = True
-            self.bus.emit(Message("mycroft.audio.service.play",
-                                  {"tracks": [entry.uri], "repeat": False}))
-            started.wait(START_WAIT)
-        t0 = time.monotonic() - 0.15          # the player answers a moment after it starts
+        at = time.time() + float(band.get("latency", 0.3)) + START_AFTER
+        if perf.vocal:
+            clip = {"source": self.skill_id, "at": at, "path": str(perf.vocal)}
+            r = self.bus.wait_for_response(Message("ovos.midi.clip", clip), "ovos.midi.clip.response",
+                                           timeout=START_AFTER / 2)
+            if r is None or r.data.get("error"):
+                # the plugin can't read our folder (e.g. another container): the voice itself
+                clip.pop("path")
+                clip["data"] = base64.b64encode(perf.vocal.read_bytes()).decode()
+                self.bus.emit(Message("ovos.midi.clip", clip))
+        self.bus.emit(Message("ovos.midi.play", {
+            "source": self.skill_id, "at": at, "data": base64.b64encode(perf.data).decode(),
+            "transpose": perf.transpose, "mute": perf.mute}))
+        t0 = time.monotonic() + (at - time.time())       # the song's time 0, on this clock
         threading.Thread(target=self._follow, args=(perf, title, t0, run), daemon=True).start()
 
     def _follow(self, perf, title, t0, run):
@@ -286,9 +291,7 @@ class KaraokeSkill(OVOSSkill):
         if run is None:
             return False
         run.set()
-        self.audio_service.stop()
-        if getattr(self, "_classic", False):
-            self.bus.emit(Message("mycroft.audio.service.stop"))
+        self.bus.emit(Message("ovos.midi.stop", {"source": self.skill_id}))
         self.bus.emit(Message(ENDED_MSG))
         self.gui.release()
         return True
