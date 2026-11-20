@@ -1,0 +1,23 @@
+{
+  "skill_id": "ovos-skill-karaoke.emkay-voice",
+  "source": "https://github.com/emkay-voice/ovos-skill-karaoke",
+  "package_name": "ovos-skill-karaoke",
+  "pip_spec": "ovos-skill-karaoke",
+  "license": "Apache-2.0",
+  "author": "emkay-voice",
+  "name": "Karaoke",
+  "description": "Zingt liedjes met de eigen stem van het apparaat, gestemd op de melodie met een band erachter, of doet karaoke voor jou met tekst, akkoorden en melodie op het scherm. Draait op het apparaat; je eigen .kar-bestanden zijn welkom.",
+  "examples": [
+    "zing Daisy Bell",
+    "karaoke Jingle Bells",
+    "zing een liedje",
+    "zoek een liedje over kerst"
+  ],
+  "tags": [
+    "karaoke",
+    "zingen",
+    "muziek",
+    "plezier"
+  ],
+  "icon": "https://raw.githubusercontent.com/emkay-voice/ovos-skill-karaoke/main/icon.png"
+}

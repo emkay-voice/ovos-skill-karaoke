@@ -29,7 +29,7 @@ def skill(tmp_path, monkeypatch, speak):
     s.ask_yesno = MagicMock(return_value=None)
 
     def voc_match(utt, name, lang=None, exact=False):
-        words = (ROOT / "locale" / "en-us" / f"{name}.voc").read_text().splitlines()
+        words = (ROOT / "locale" / "en-US" / f"{name}.voc").read_text().splitlines()
         return any(w and w in (utt or "").lower() for w in words)
     s.voc_match = voc_match
     s.speak_dialog = MagicMock()
@@ -82,11 +82,16 @@ def test_a_song_read_as_a_name(skill):
 
 
 def test_locales_match():
-    files = {p.name for p in (ROOT / "locale" / "en-us").iterdir()}
-    assert files == {p.name for p in (ROOT / "locale" / "da-dk").iterdir()}
-    for name in ("sing.intent", "karaoke.intent"):
-        for lang in ("en-us", "da-dk"):
-            assert all("{song}" in ln for ln in (ROOT / "locale" / lang / name).read_text().splitlines() if ln)
+    """Every Emkay language has every file, and the slots are kept."""
+    langs = sorted(p.name for p in (ROOT / "locale").iterdir())
+    assert {"en-US", "da-DK", "de-DE", "es-ES", "fr-FR", "it-IT", "nl-NL", "pt-PT", "pt-BR",
+            "ca-ES", "eu-ES", "gl-ES"} <= set(langs)
+    files = {p.name for p in (ROOT / "locale" / "en-US").iterdir()}
+    for lang in langs:
+        assert {p.name for p in (ROOT / "locale" / lang).iterdir()} == files, lang
+        for name, slot in (("sing.intent", "{song}"), ("karaoke.intent", "{song}"), ("find_song.intent", "{query}")):
+            lines = [ln for ln in (ROOT / "locale" / lang / name).read_text().splitlines() if ln]
+            assert lines and all(slot in ln for ln in lines), (lang, name)
 
 
 def test_shy_then_sings_when_encouraged(skill):

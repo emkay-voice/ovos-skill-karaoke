@@ -30,6 +30,10 @@ in a browser, where it was made.
 "kan du synge en sang?"
 ```
 
+It speaks every language Emkay does: English, Danish, German, Spanish,
+French, Italian, Dutch, Portuguese (Portugal and Brazil), Catalan, Basque and
+Galician.
+
 Asked to sing just *a* song, it is a little shy at first - "Oh no, you'll
 just laugh at me" - until you encourage it. Then: "I'm a bit nervous about
 my voice, but here goes nothing", and afterwards "thank you for listening"
@@ -44,7 +48,7 @@ device says it is warming up its voice); after that it starts at once.
 | Song | | |
 |---|---|---|
 | Daisy Bell (Bicycle Built for Two) | waltz | ships with the skill |
-| Hey Emkay | disco | ships with the skill, in 10 languages |
+| Hey Emkay | disco | ships with the skill, in 11 languages |
 | Goodnight from Emkay | lullaby | ships with the skill |
 | Emkay Rock | rock'n'roll | online songbook |
 | Offline Island | reggae | online songbook |
@@ -61,7 +65,8 @@ songbook's own and free to use (CC0).
 A song can come in several languages - `hey_emkay.kar`, `hey_emkay.da.kar`,
 ... - and they count as one song: the device sings the version in its own
 language, or English when there is none. *Hey Emkay* is in English, Danish,
-German, Spanish, French, Italian, Dutch, Portuguese, Catalan and Basque - the
+German, Spanish, French, Italian, Dutch, Portuguese, Catalan, Basque and
+Galician - the
 languages Emkay speaks. They are singable rewrites rather than translations
 (same melody, a syllable per note); corrections from native speakers are
 very welcome.

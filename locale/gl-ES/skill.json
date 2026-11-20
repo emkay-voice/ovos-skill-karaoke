@@ -1,0 +1,23 @@
+{
+  "skill_id": "ovos-skill-karaoke.emkay-voice",
+  "source": "https://github.com/emkay-voice/ovos-skill-karaoke",
+  "package_name": "ovos-skill-karaoke",
+  "pip_spec": "ovos-skill-karaoke",
+  "license": "Apache-2.0",
+  "author": "emkay-voice",
+  "name": "Karaoke",
+  "description": "Canta cancións coa propia voz do dispositivo, afinada na melodía e cunha banda, ou fai karaoke para ti coa letra, os acordes e a melodía na pantalla. Funciona no dispositivo; os teus ficheiros .kar son benvidos.",
+  "examples": [
+    "canta Daisy Bell",
+    "karaoke Jingle Bells",
+    "canta unha canción",
+    "busca unha canción sobre o Nadal"
+  ],
+  "tags": [
+    "karaoke",
+    "cantar",
+    "música",
+    "diversión"
+  ],
+  "icon": "https://raw.githubusercontent.com/emkay-voice/ovos-skill-karaoke/main/icon.png"
+}

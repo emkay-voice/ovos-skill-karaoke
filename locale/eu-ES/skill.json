@@ -1,0 +1,23 @@
+{
+  "skill_id": "ovos-skill-karaoke.emkay-voice",
+  "source": "https://github.com/emkay-voice/ovos-skill-karaoke",
+  "package_name": "ovos-skill-karaoke",
+  "pip_spec": "ovos-skill-karaoke",
+  "license": "Apache-2.0",
+  "author": "emkay-voice",
+  "name": "Karaokea",
+  "description": "Gailuaren ahotsarekin abestiak abesten ditu, melodiara egokituta eta talde batekin, edo karaokea egiten du zuretzat, letra, akordeak eta melodia pantailan. Gailuan bertan dabil; zure .kar fitxategiak ongi etorriak dira.",
+  "examples": [
+    "abestu Daisy Bell",
+    "karaokea Jingle Bells",
+    "abestu abesti bat",
+    "bilatu Gabonei buruzko abesti bat"
+  ],
+  "tags": [
+    "karaokea",
+    "abestu",
+    "musika",
+    "dibertsioa"
+  ],
+  "icon": "https://raw.githubusercontent.com/emkay-voice/ovos-skill-karaoke/main/icon.png"
+}
