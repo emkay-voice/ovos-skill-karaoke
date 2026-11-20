@@ -9,7 +9,8 @@ What the skill needs from any .kar file:
   * which track is the melody - a .kar file doesn't say, so it is the track
     whose notes start where the syllables do;
   * the notes each syllable is sung on (several notes = a melisma);
-  * the chords, for the screen - found from the other tracks' notes.
+  * the chords, for the screen - from chord markers when the file has them,
+    else found from the other tracks' notes.
 
 Times are in seconds (the tempo map applied), so the singer, the band and
 the screen don't need to know about ticks.
@@ -355,6 +356,24 @@ def detect_chords(tracks, melody_idx, length, bar, split=True):
     return out
 
 
+CHORD_NAME = re.compile(r"^[A-G][#b]?(m|maj7|m7|7|dim|sus4|sus2|6|m6|9|add9|aug)?(/[A-G][#b]?)?$")
+
+
+def marked_chords(mid: mido.MidiFile, sec) -> list[Chord]:
+    """Chord symbols written in the file as marker or cue events (as our
+    songbook writes them, and some programs do) - better than guessing."""
+    out = []
+    for tr in mid.tracks:
+        t = 0
+        for m in tr:
+            t += m.time
+            if m.type in ("marker", "cue_marker") and CHORD_NAME.match(m.text.strip()):
+                out.append(Chord(sec(t), m.text.strip()))
+    out.sort(key=lambda c: c.time)
+    out = [c for k, c in enumerate(out) if k == 0 or c.name != out[k - 1].name]
+    return out if len(out) >= 2 else []
+
+
 def load(data: bytes, title: str = "", language: str = "") -> Song:
     mid = mido.MidiFile(file=io.BytesIO(data))
     tmap = _tempo_map(mid)
@@ -387,7 +406,7 @@ def load(data: bytes, title: str = "", language: str = "") -> Song:
     # two halves in 2/4, 4/4, 6/8, 12/8 - not in 3/4
     split = num % 2 == 0
     length = mid.length
-    chords = detect_chords(tracks, mel, length, beat * meter, split)
+    chords = marked_chords(mid, sec) or detect_chords(tracks, mel, length, beat * meter, split)
     lang = {"en": "en", "eng": "en", "da": "da", "dan": "da"}.get(language[:3], language[:2] or "en")
     return Song(title or "", lang, syllables, chords, mid, mel, length)
 

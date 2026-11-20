@@ -50,13 +50,19 @@ device says it is warming up its voice); after that it starts at once.
 | Daisy Bell (Bicycle Built for Two) | waltz | ships with the skill |
 | Hey Emkay | disco | ships with the skill, in 11 languages |
 | Goodnight from Emkay | lullaby | ships with the skill |
+| Jerusalem | hymn | ships with the skill |
 | Emkay Rock | rock'n'roll | online songbook |
 | Offline Island | reggae | online songbook |
 | Jingle Bells | sleigh ride | online songbook |
 
 *Daisy Bell* (Harry Dacre, 1892) was the first song a computer ever sang -
 an IBM 7094 in 1961, the song HAL sings in *2001: A Space Odyssey*. *Jingle
-Bells* is James Lord Pierpont's (1857). Both are in the public domain; the
+Bells* is James Lord Pierpont's (1857). *Jerusalem* - Blake's "And did those
+feet in ancient time", set by Hubert Parry in 1916 - is a nod to Mycroft:
+its singing skill, which the Mark 1 demo played every two minutes, sang it;
+the melody is taken from Curwen's first edition of 1916
+([IMSLP #28456](https://imslp.org/wiki/Jerusalem_(Parry,_Charles_Hubert_Hastings))).
+All of these are in the public domain; the
 Emkay songs are new, written for this songbook. All arrangements are the
 songbook's own and free to use (CC0).
 
@@ -82,7 +88,8 @@ Put `.kar` (or `.mid` with lyrics) files in the skill's `songs` folder:
 or add folders to the `song_folders` setting. They are found by their title
 (the `@T` line of a .kar file, else the file name), and your own come first.
 Any karaoke file works: the skill finds the lyrics, works out which track is
-the melody (a .kar file doesn't say) and which chords the band plays.
+the melody (a .kar file doesn't say) and which chords the band plays (or
+reads them from marker events, as the songbook's own files have them).
 
 Please only use files you are allowed to use. Most `.kar` files on the
 internet are of songs still under copyright, which is why none of those are

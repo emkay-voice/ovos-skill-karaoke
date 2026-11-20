@@ -9,7 +9,8 @@ karaoke player can play it - with General MIDI instruments:
   track 0  tempo, meter, title
   track 1  Words: the lyrics, Soft Karaoke style
   track 2  Melody (the guide the karaoke mode plays; muted when Emkay sings)
-  track 3+ the band
+  track 3  Chords: the chord symbols as marker events (for the screen)
+  track 4+ the band
 
 Songs listed in OFFLINE are written to songs/ (shipped with the skill), the
 rest to songbook/ (fetched when asked for).
@@ -35,7 +36,7 @@ sys.path.insert(0, str(ROOT))
 from abcnotation import parse  # noqa: E402
 
 TPB = 480
-OFFLINE = {"daisy_bell", "hey_emkay", "goodnight_emkay"}
+OFFLINE = {"daisy_bell", "hey_emkay", "goodnight_emkay", "jerusalem"}
 INTRO_BARS = 2
 
 NAMES = {"C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5, "F#": 6,
@@ -290,8 +291,23 @@ def reggae(song, spans, bpb):
     return [drums, bass, guitar, organ], 22       # harmonica guide melody
 
 
+def hymn(song, spans, bpb):
+    """Organ, strings and a choir holding the chords, the pedal on the root."""
+    organ, pedal, strings, choir = (Part("Organ", 1, 19), Part("Pedal", 2, 19),
+                                    Part("Strings", 3, 48), Part("Choir", 4, 52))
+    for a, b, name in spans:
+        pedal.note(a, b - a, bass_note(name, 36), 80)
+        for p in voicing(name, 55):
+            organ.note(a, b - a, p, 62)
+        for p in voicing(name, 62):
+            strings.note(a, b - a, p, 40)
+        for p in voicing(name, 50):
+            choir.note(a, b - a, p, 34)
+    return [organ, pedal, strings, choir], 56     # trumpet guide melody
+
+
 STYLES = {"waltz": waltz, "sleigh": sleigh, "disco": disco,
-          "rocknroll": rocknroll, "lullaby": lullaby, "reggae": reggae}
+          "rocknroll": rocknroll, "lullaby": lullaby, "reggae": reggae, "hymn": hymn}
 SWING = {"rocknroll"}
 
 
@@ -388,6 +404,20 @@ def arrange(src: Path, lyrics: Path | None = None) -> tuple[bytes, dict]:
             if ends[k].syllable.endswith(",") and c - start >= 6 and j - c >= 4:
                 words[c][3] = True
                 start = c
+        # still long (a poem without commas): break before a capital that
+        # starts a verse line, the one giving a line nearest 8 syllables
+        # (hymn metre) - "Holy" and "God" are capitals too; no capital: a word
+        start = max([c for c in range(i, j) if words[c][3]] or [i])
+        while j - start > 12:
+            span = range(start + 6, min(j - 4, start + 12) + 1)
+            cands = [c for c in span
+                     if words[c][2] and words[c][1][:1].isupper() and words[c][1] != "I"]
+            cands = cands or [c for c in span if words[c][2]]     # else any word
+            if not cands:
+                break
+            c = min(cands, key=lambda c: abs(c - start - 8))
+            words[c][3] = True
+            start = c
         i = j
 
     mid = mido.MidiFile(type=1, ticks_per_beat=TPB)
@@ -403,6 +433,14 @@ def arrange(src: Path, lyrics: Path | None = None) -> tuple[bytes, dict]:
                                       "ENGL" if song.language == "en" else song.language.upper(),
                                       song.composer, song.tags))
     mid.tracks.append(melody.track())
+    chords = mido.MidiTrack([mido.MetaMessage("track_name", name="Chords", time=0)])
+    last = 0
+    for a, _, name in spans:                     # the chords as markers, for the screen
+        tick = int(round(sw(a) * TPB))
+        chords.append(mido.MetaMessage("marker", text=name, time=tick - last))
+        last = tick
+    chords.append(mido.MetaMessage("end_of_track", time=0))
+    mid.tracks.append(chords)
     for p in parts:
         mid.tracks.append(p.track())
     import io

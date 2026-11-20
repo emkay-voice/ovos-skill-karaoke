@@ -7,7 +7,7 @@ from ovos_skill_karaoke.song import kar_words_track, load
 
 def test_shipped_songs_read(kar):
     for name in ("daisy_bell", "hey_emkay", "jingle_bells", "emkay_rock", "goodnight_emkay",
-                 "offline_island", "hey_emkay.da", "hey_emkay.eu"):
+                 "offline_island", "hey_emkay.da", "hey_emkay.eu", "jerusalem"):
         s = load(kar(name))
         assert s.title and s.language == (name.split(".")[1] if "." in name else "en")
         assert s.melody_track == 2                    # found, not told
@@ -21,7 +21,14 @@ def test_words_and_lines(kar):
     assert [x.text for x in first[:2]] == ["Dai", "sy"]
     assert first[0].word_start and not first[1].word_start
     assert first[0].verse_start and first[0].line_start
-    assert len(s.lines) == 5
+    assert len(s.lines) == 6          # the long last line is broken in two
+
+
+def test_written_chords_and_poem_lines(kar):
+    s = load(kar("jerusalem"))          # chords as markers; Blake's lines kept
+    assert [c.name for c in s.chords][:4] == ["D", "G", "A7", "D"]
+    assert " ".join("".join(x.text for x in w) for w in s.words(s.lines[2])) == \
+        "And was the Holy Lamb of God"
 
 
 def test_chords_found_from_the_band(kar):

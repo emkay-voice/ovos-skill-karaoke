@@ -51,7 +51,7 @@ old printed source, not from someone's arrangement), or your own.
    (`"G"`, `"D7"`, `"Am"`) and the lyrics in `w:` lines, a syllable per
    note (`Dai-sy`), plus `%%language`, `%%tags` (for searching, any
    language) and `%%style` (`waltz`, `sleigh`, `disco`, `rocknroll`,
-   `lullaby`, `reggae`; a new style is a function in `tools/arrange.py`).
+   `lullaby`, `reggae`, `hymn`; a new style is a function in `tools/arrange.py`).
    Hyphenate as the word is spelled: the TTS gets the syllables joined
    (`køk-ke-net`, not `kø-ke-net`).
 2. Other languages: `tools/songs/<name>.<lang>.lyrics` with a `T:` title,
