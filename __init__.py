@@ -228,9 +228,6 @@ class KaraokeSkill(OVOSSkill):
                                   {"tracks": [entry.uri], "repeat": False}))
             started.wait(START_WAIT)
         t0 = time.monotonic() - 0.15          # the player answers a moment after it starts
-        if perf.mode == "sing" and perf.visemes:
-            self.bus.emit(Message("enclosure.mouth.viseme_list",
-                                  {"start": time.time() - 0.15, "visemes": perf.visemes}))
         threading.Thread(target=self._follow, args=(perf, title, t0, run), daemon=True).start()
 
     def _follow(self, perf, title, t0, run):
@@ -253,6 +250,11 @@ class KaraokeSkill(OVOSSkill):
                 line_idx = idx
                 self.bus.emit(Message(LYRICS_MSG, {"title": title, "line": sheet.line_text(lines[idx]),
                                                    "next": sheet.line_text(nxt), "mode": perf.mode}))
+                if perf.mode == "sing" and perf.visemes and line_idx == 0 and t == 0.0:
+                    # the mouth, after the first words: a screen that shows
+                    # the face while the device sings (Emkay) does so on them
+                    self.bus.emit(Message("enclosure.mouth.viseme_list",
+                                          {"start": time.time() - now, "visemes": perf.visemes}))
             if show_sheet:
                 self.gui["image"] = sheet.render(title, lines[idx], nxt, song.chords, now,
                                                  show_music=perf.mode == "karaoke")
