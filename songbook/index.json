@@ -131,6 +131,44 @@
         "wake",
         "you"
       ]
+    },
+    {
+      "file": "silent_night.kar",
+      "title": "Silent Night",
+      "credits": "Franz Xaver Gruber, 1818; words Joseph Mohr, English John Freeman Young, 1859 (public domain)",
+      "language": "en",
+      "style": "lullaby",
+      "tags": [
+        "christmas",
+        "carol",
+        "night",
+        "winter",
+        "jul",
+        "julesang"
+      ],
+      "words": [
+        "all",
+        "and",
+        "bright",
+        "calm",
+        "child",
+        "heavenly",
+        "holy",
+        "in",
+        "infant",
+        "is",
+        "mild",
+        "mother",
+        "night",
+        "peace",
+        "round",
+        "silent",
+        "sleep",
+        "so",
+        "tender",
+        "virgin",
+        "yon"
+      ]
     }
   ]
 }

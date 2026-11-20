@@ -40,7 +40,7 @@ def skill(tmp_path, monkeypatch, speak):
 
 
 def test_unknown_song(skill):
-    skill.handle_sing(MagicMock(data={"song": "mester jakob"}))
+    skill.handle_sing(MagicMock(data={"song": "yellow submarine"}))
     name, data = skill.speak_dialog.call_args[0]
     assert name == "unknown_song" and "Daisy Bell" in data["songs"]
 
@@ -117,7 +117,7 @@ def test_not_shy_right_after_singing(skill):
 
 def test_find_a_song(skill):
     skill.ask_yesno.return_value = "yes"
-    skill.handle_find(MagicMock(data={"query": "bedtime"}))
+    skill.handle_find(MagicMock(data={"query": "lullaby"}))
     assert skill.ask_yesno.call_args[0][1] == {"song": "Goodnight from Emkay"}
     skill.gui.show_page.assert_any_call("SYSTEM_grid", override_idle=60)
     assert skill.audio_service.play.call_args[0][0][0].title == "Goodnight from Emkay"

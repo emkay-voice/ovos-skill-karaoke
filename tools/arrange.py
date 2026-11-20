@@ -36,7 +36,8 @@ sys.path.insert(0, str(ROOT))
 from abcnotation import parse  # noqa: E402
 
 TPB = 480
-OFFLINE = {"daisy_bell", "hey_emkay", "goodnight_emkay", "jerusalem"}
+OFFLINE = {"daisy_bell", "hey_emkay", "goodnight_emkay", "jerusalem", "frere_jacques",
+           "happy_birthday", "twinkle"}
 INTRO_BARS = 2
 
 NAMES = {"C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5, "F#": 6,
@@ -306,8 +307,55 @@ def hymn(song, spans, bpb):
     return [organ, pedal, strings, choir], 56     # trumpet guide melody
 
 
+def round_(song, spans, bpb):
+    """A round: the band, and a flute starting the melody again two bars later."""
+    piano, bass, flute, glock = (Part("Piano", 1, 0), Part("Bass", 2, 32),
+                                 Part("Canon", 3, 73), Part("Glockenspiel", 4, 9))
+    last = spans[-1]
+    for a, b, name in spans + [(last[1], last[1] + bpb, last[2])]:
+        t = a
+        while t < b - 1e-6:
+            bass.note(t, 0.9, bass_note(name, 41), 80)
+            bass.note(t + bpb / 2, 0.9, bass_note(name, 41) + 7, 70)
+            for p in voicing(name, 57):
+                piano.note(t, bpb / 2 - 0.1, p, 52)
+                piano.note(t + bpb / 2, bpb / 2 - 0.1, p, 46)
+            t += bpb
+    for n in song.notes:
+        if n.midi is not None:
+            flute.note(n.start + (INTRO_BARS + 2) * bpb, n.dur * 0.95, n.midi + 12, 62)
+            if n.syllable and n.syllable.lower().strip(",.!?") in ("ding", "dang", "dong", "bim", "bam",
+                                                                    "bum", "din", "don", "dan", "dão",
+                                                                    "bom", "daing"):
+                glock.note(n.start + INTRO_BARS * bpb, 1.0, n.midi + 24, 70)
+    return [piano, bass, flute, glock], 11        # vibraphone guide melody
+
+
+def nursery(song, spans, bpb):
+    """Celesta rocking through the chord, pizzicato bass, a soft string pad."""
+    celesta, bass, strings, glock = (Part("Celesta", 1, 8), Part("Bass", 2, 45),
+                                     Part("Strings", 3, 48), Part("Glockenspiel", 4, 9))
+    for a, b, name in spans:
+        tones = voicing(name, 60)
+        arp = [tones[0], tones[1], tones[2], tones[1]]
+        t, k = a, 0
+        while t < b - 1e-6:
+            celesta.note(t, 0.9, arp[k % 4], 50 if k % 2 == 0 else 40)
+            if k % 2 == 0:
+                bass.note(t, 0.6, bass_note(name, 41) + (7 if k % 4 == 2 else 0), 72)
+            t += 1
+            k += 1
+        for p in voicing(name, 55):
+            strings.note(a, b - a, p, 30)
+    for n in song.notes:
+        if n.midi is not None:
+            glock.note(n.start + INTRO_BARS * bpb, min(n.dur, 1.0), n.midi + 12, 26)
+    return [celesta, bass, strings, glock], 73    # flute guide melody
+
+
 STYLES = {"waltz": waltz, "sleigh": sleigh, "disco": disco,
-          "rocknroll": rocknroll, "lullaby": lullaby, "reggae": reggae, "hymn": hymn}
+          "rocknroll": rocknroll, "lullaby": lullaby, "reggae": reggae, "hymn": hymn,
+          "round": round_, "nursery": nursery}
 SWING = {"rocknroll"}
 
 

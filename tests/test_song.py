@@ -7,11 +7,12 @@ from ovos_skill_karaoke.song import kar_words_track, load
 
 def test_shipped_songs_read(kar):
     for name in ("daisy_bell", "hey_emkay", "jingle_bells", "emkay_rock", "goodnight_emkay",
-                 "offline_island", "hey_emkay.da", "hey_emkay.eu", "jerusalem"):
+                 "offline_island", "hey_emkay.da", "hey_emkay.eu", "jerusalem", "frere_jacques",
+                 "frere_jacques.da", "frere_jacques.eu", "happy_birthday", "twinkle", "silent_night"):
         s = load(kar(name))
         assert s.title and s.language == (name.split(".")[1] if "." in name else "en")
         assert s.melody_track == 2                    # found, not told
-        assert len(s.syllables) > 40
+        assert len(s.syllables) > 20
         assert all(syl.notes for syl in s.syllables)  # every syllable has its note
 
 

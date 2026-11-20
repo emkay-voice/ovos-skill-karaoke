@@ -51,6 +51,10 @@ device says it is warming up its voice); after that it starts at once.
 | Hey Emkay | disco | ships with the skill, in 11 languages |
 | Goodnight from Emkay | lullaby | ships with the skill |
 | Jerusalem | hymn | ships with the skill |
+| Are You Sleeping (Frère Jacques) | round | ships with the skill, in 12 languages |
+| Happy Birthday | waltz | ships with the skill |
+| Twinkle, Twinkle, Little Star | nursery | ships with the skill |
+| Silent Night | lullaby | online songbook |
 | Emkay Rock | rock'n'roll | online songbook |
 | Offline Island | reggae | online songbook |
 | Jingle Bells | sleigh ride | online songbook |
@@ -62,7 +66,9 @@ feet in ancient time", set by Hubert Parry in 1916 - is a nod to Mycroft:
 its singing skill, which the Mark 1 demo played every two minutes, sang it;
 the melody is taken from Curwen's first edition of 1916
 ([IMSLP #28456](https://imslp.org/wiki/Jerusalem_(Parry,_Charles_Hubert_Hastings))).
-All of these are in the public domain; the
+*Frère Jacques* (sung as a round: a flute starts it again two bars later),
+*Happy Birthday*, *Twinkle, Twinkle* and *Silent Night* are old enough to be
+free everywhere. All of these are in the public domain; the
 Emkay songs are new, written for this songbook. All arrangements are the
 songbook's own and free to use (CC0).
 

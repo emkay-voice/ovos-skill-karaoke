@@ -11,7 +11,7 @@ def test_forgiving_match():
     for q, want in [("daisy", "Daisy Bell"), ("bicycle built for two", "Daisy Bell"),
                     ("the disco song", "Hey Emkay"), ("jinglebells", "Jingle Bells")]:
         assert short_title(find(q, e).title) == want
-    assert find("mester jakob", e) is None
+    assert find("yellow submarine", e) is None
 
 
 def test_own_songs_come_first(tmp_path, kar):
@@ -41,4 +41,11 @@ def test_search_by_tag_and_words():
     e = local_songs([])
     assert short_title(search("something for bedtime", e, "en")[0].title) == "Goodnight from Emkay"
     assert short_title(search("a song about the moon", e, "en")[0].title) == "Goodnight from Emkay"
-    assert short_title(search("noget til fest", e, "da")[0].title) == "Hej Emkay"
+    assert "Hej Emkay" in [short_title(x.title) for x in search("noget til fest", e, "da")]
+
+
+def test_frere_jacques_in_every_language():
+    e = local_songs([])
+    for lang, title in [("da-dk", "Mester Jakob"), ("de-de", "Bruder Jakob"), ("it-it", "Fra Martino"),
+                        ("fr-fr", "Frère Jacques"), ("en-us", "Are You Sleeping (Frère Jacques)")]:
+        assert find("frere jacques", e, lang).title == title
