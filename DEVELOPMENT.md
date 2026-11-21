@@ -53,7 +53,7 @@ old printed source, not from someone's arrangement), or your own.
    (`"G"`, `"D7"`, `"Am"`) and the lyrics in `w:` lines, a syllable per
    note (`Dai-sy`), plus `%%language`, `%%tags` (for searching, any
    language) and `%%style` (`waltz`, `sleigh`, `disco`, `rocknroll`,
-   `lullaby`, `reggae`, `hymn`, `round`, `nursery`, `swing`; a new style is a function in `tools/arrange.py`).
+   `lullaby`, `reggae`, `hymn`, `round`, `nursery`, `swing`, `tango`; a new style is a function in `tools/arrange.py`).
    A song can also have:
    - `%%intro <bars>`: bars before the singing (default 2);
    - `%%enter drums 4, bass 9, band 14`: the band built up part by part
@@ -61,6 +61,8 @@ old printed source, not from someone's arrangement), or your own.
    - `%%say <bar> <text>`: a line the device says with its normal voice at
      that bar ("first we need some drums!"). It is written as a cue marker
      `say:<text>`, which other karaoke players leave alone;
+   - `%%lines w`: each `w:` line is a line on the screen (else lines end
+     at a sentence, or at a comma once they are long);
    - the tag `coaxed`: a song that begins by giving in ("Okay... okay, I'll
      sing"), sung after "can you sing a song?" - "no" - "come on".
    Hyphenate as the word is spelled: the TTS gets the syllables joined

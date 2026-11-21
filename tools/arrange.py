@@ -36,7 +36,7 @@ sys.path.insert(0, str(ROOT))
 from abcnotation import parse  # noqa: E402
 
 TPB = 480
-OFFLINE = {"daisy_bell", "hey_emkay", "goodnight_emkay", "jerusalem", "frere_jacques", "emkay_swing",
+OFFLINE = {"daisy_bell", "hey_emkay", "goodnight_emkay", "jerusalem", "frere_jacques", "emkay_swing", "emkay_tango",
            "happy_birthday", "twinkle"}
 INTRO_BARS = 2
 
@@ -463,9 +463,57 @@ def swing(song, spans, bpb):
     return [drums, bass, piano, saxes, trumpets, bones], 59    # muted trumpet guide melody
 
 
+def tango(song, spans, bpb):
+    """A tango: the bandoneon marking every beat (marcato) and then the 3-3-2
+    (sincopa), the bass dragging into the beat (arrastre), the piano on 1 and
+    3, strings holding the chords - and the ending, "chan-chan". With
+    %%enter band <bar>, the bandoneon starts alone."""
+    bando, bass, piano, strings = (Part("Bandoneon", 1, 23), Part("Bass", 2, 32),
+                                   Part("Piano", 3, 0), Part("Strings", 4, 48))
+    band = getattr(song, "enter", {}).get("band", 0) * bpb
+    end = spans[-1][1]
+    final = end - bpb
+    for i, (a, b, name) in enumerate(spans):
+        t = a
+        while t < b - 1e-6 and t < final - 1e-6:
+            bar_no = int(round(t / bpb))
+            v = voicing(name, 57)
+            if bar_no % 2 == 0:                          # marcato: every beat, 1 and 3 hard
+                for beat in range(4):
+                    for p in v:
+                        bando.note(t + beat, 0.32, p, 96 if beat % 2 == 0 else 74)
+            else:                                        # sincopa: 3-3-2
+                for off, vel in ((0, 100), (1.5, 92), (3, 86)):
+                    for p in v:
+                        bando.note(t + off, 0.45, p, vel)
+            if t >= band:
+                r = bass_note(name, 33)
+                for beat, p, vel in ((0, r, 104), (1, r, 80), (2, r + 7, 98), (3, r, 80)):
+                    bass.note(t + beat, 0.42, p, vel)
+                bass.note(t + 1.75, 0.2, r + 6, 70)       # the drag into 3
+                for p in (r + 12, r + 24):
+                    piano.note(t, 0.3, p, 88)
+                    piano.note(t + 2, 0.3, p + (7 if p == r + 12 else 0), 80)
+                for p in voicing(name, 64):
+                    strings.note(t, min(bpb, b - t) * 0.98, p, 44 if bar_no % 4 else 56)
+            t += bpb
+    last = spans[-1][2]
+    r = bass_note(last, 33)
+    for off, vel in ((0, 122), (1, 110)):              # chan - chan
+        for p in voicing(last, 57) + [voicing(last, 57)[0] + 12]:
+            bando.note(final + off, 0.25, p, vel)
+        for p in voicing(last, 64):
+            strings.note(final + off, 0.25, p, vel - 20)
+        bass.note(final + off, 0.25, r, vel)
+        piano.note(final + off, 0.25, r + 12, vel)
+        piano.note(final + off, 0.25, r + 24, vel)
+    return [bando, bass, piano, strings], 40          # violin guide melody
+
+
 STYLES = {"waltz": waltz, "sleigh": sleigh, "disco": disco,
           "rocknroll": rocknroll, "lullaby": lullaby, "reggae": reggae, "hymn": hymn,
-          "round": round_, "nursery": nursery, "swing": swing}
+          "round": round_, "nursery": nursery, "swing": swing,
+          "tango": tango}
 SWING = {"rocknroll", "swing"}
 
 
@@ -561,6 +609,7 @@ def arrange(src: Path, lyrics: Path | None = None) -> tuple[bytes, dict]:
         for p in parts:
             p.ev = [(int(round(_swing(t / TPB) * TPB)), on, pi, v) for t, on, pi, v in p.ev]
     sw = _swing if song.style in SWING else (lambda t: t)
+    by_w_lines = "%%lines w" in text        # a song whose every w: line is a line on the screen
     melody = Part("Melody", 0, guide_prog)
     words = []
     first = True
@@ -575,7 +624,7 @@ def arrange(src: Path, lyrics: Path | None = None) -> tuple[bytes, dict]:
         txt = n.syllable
         words.append([int(round(sw(n.start + offset) * TPB)), txt.rstrip(",.!?;:"), True, prev_end_line, first])
         first = False
-        prev_end_line = txt[-1:] in ".!?"
+        prev_end_line = txt[-1:] in ".!?" or (by_w_lines and n.line_end)
     # word starts: a syllable follows a word end
     ends = [n for n in song.notes if n.midi is not None and n.syllable is not None]
     for i in range(1, len(words)):
@@ -590,7 +639,7 @@ def arrange(src: Path, lyrics: Path | None = None) -> tuple[bytes, dict]:
         start = i
         for k in range(i, j - 1):
             c = k + 1
-            if ends[k].syllable.endswith(",") and c - start >= 6 and j - c >= 4:
+            if not by_w_lines and ends[k].syllable.endswith(",") and c - start >= 6 and j - c >= 4:
                 words[c][3] = True
                 start = c
         # still long (a poem without commas): break before a capital that

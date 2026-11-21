@@ -25,6 +25,7 @@ class Note:
     syllable: str | None = None
     word_end: bool = True
     melisma: bool = False  # continues previous syllable ('_')
+    line_end: bool = False  # the last syllable of its w: line
 
 
 @dataclass
@@ -106,6 +107,7 @@ def parse(text: str) -> Song:
     bar_acc: dict[tuple[str, int], int] = {}
     pending_tie = False
     lyrics: list[tuple[str, str]] = []
+    line_ends: set[int] = set()
 
     for raw in text.splitlines():
         line = raw.split("%", 1)[0].rstrip() if not raw.startswith("%%") else ""
@@ -141,6 +143,7 @@ def parse(text: str) -> Song:
             continue
         if line.startswith("w:"):
             lyrics.extend(_lyric_tokens(line[2:]))
+            line_ends.add(len(lyrics) - 1)
             continue
         i = 0
         while i < len(line):
@@ -196,4 +199,5 @@ def parse(text: str) -> Song:
             continue
         n.word_end = not txt.endswith("-")
         n.syllable = txt.rstrip("-")
+        n.line_end = li - 1 in line_ends
     return song

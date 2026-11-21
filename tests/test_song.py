@@ -127,3 +127,15 @@ def test_spoken_lines_and_the_band_coming_in(kar):
             starts[name] = first / s.midi.ticks_per_beat / 4      # in bars
     assert round(starts["Drums"]) == 4 and round(starts["Bass"]) == 9 and round(starts["Trumpets"]) == 14
     assert all(x.notes for x in s.syllables)
+
+
+def test_the_tango(kar):
+    """Emkay's Tango: a line said in the break after verse 3, a screen line
+    per w: line, the bandoneon starting alone, in every language."""
+    from pathlib import Path
+    s = load(kar("emkay_tango"))
+    assert len(s.spoken) == 2 and "nobody talks like me" in s.spoken[1][1]
+    assert " ".join(x.text for x in s.lines[0]) == "It all be gan with My croft so long a go"
+    assert all(x.notes for x in s.syllables)
+    langs = sorted(p.name.split(".")[1] for p in (Path(__file__).parents[1] / "songs").glob("emkay_tango.*.kar"))
+    assert langs == ["ca", "da", "de", "es", "eu", "fr", "gl", "it", "nl", "pt"]

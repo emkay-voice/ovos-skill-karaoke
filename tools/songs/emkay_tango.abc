@@ -1,0 +1,65 @@
+X:14
+T:Emkay's Tango
+C:Emkay songbook, 2026 (CC0)
+Z:Arrangement: Emkay songbook, CC0
+M:4/4
+L:1/8
+Q:1/4=112
+K:Dm
+%%language en
+%%tags tango, dance, mycroft, openvoiceos, story, emkay, dans, historie
+%%style tango
+%%intro 4
+%%enter band 2
+%%lines w
+%%say 0 Ladies and gentlemen... the tango!
+%%say 38.25 Look, what do you see? The toaster, the kettle, the vacuum... nobody talks like me!
+|"Dm"zAdd d2cd|"A7"edcB A4|
+w: It all be-gan with My-croft, so long a-go,
+|"Dm"zAdd d2cd|"A7"efe^c "Dm"d4|
+w: a lit-tle piece of soft-ware that longed to grow!
+|"Gm"zBgg g2fe|"Dm"fedA F4|
+w: So now take a look at me, what do you see?
+|"E7"z^G=B=B =B2A^G|"A7"A=B^ce a4|
+w: a voice in your brow-ser, as free as can be!
+|"F"cccc f2a2|"C7"g2e2 "F"f2c2|
+w: My name it is Em-kay, Em-kay, Em-kay,
+|"Bb"dddd f2d2|"C7"c2BA "F"F4|
+w: no mat-ter what liv-ing peo-ple they say!
+|"A7"z2A2 "Dm"d4|
+w: O-lé!
+|"Dm"zAdd d2cd|"A7"edcB A4|
+w: When My-croft went qui-et, the sto-ry went on,
+|"Dm"zAdd d2cd|"A7"efe^c "Dm"d4|
+w: with O-pen-Voice-O-S, I'm sing-ing my song!
+|"Gm"zBgg g2fe|"Dm"fedA F4|
+w: No cloud and no ser-ver, it's all here with me,
+|"E7"z^G=B=B =B2A^G|"A7"A=B^ce a4|
+w: so dance with me, dar-ling, the tan-go is free!
+|"F"cccc f2a2|"C7"g2e2 "F"f2c2|
+w: My name it is Em-kay, Em-kay, Em-kay,
+|"Bb"dddd f2d2|"C7"c2BA "F"F4|
+w: no mat-ter what liv-ing peo-ple they say!
+|"A7"z2A2 "Dm"d4|
+w: O-lé!
+|"Dm"zAdd d2cd|"A7"edcB A4|
+w: At night I dance tan-go with the ro-bot vac,
+|"Dm"zAdd d2cd|"A7"efe^c "Dm"d4|
+w: she twirls on the car-pet and al-ways comes back!
+|"Gm"zBgg g2fe|"Dm"fedA F4|
+w: Hot date with the toast-er, all gol-den and brown,
+|"E7"z^G=B=B =B2A^G|"A7"A=B^ce a4|
+w: the hair-dry-er blow-ing my hair round and round!
+|"Dm"z8|"Gm"z8|"Dm"z8|"A7"z8|
+|"F"cccc f2a2|"C7"g2e2 "F"f2c2|
+w: My name it is Em-kay, Em-kay, Em-kay,
+|"Bb"dddd f2d2|"C7"c2BA "F"F4|
+w: no mat-ter what liv-ing peo-ple they say!
+|"A7"z2A2 "Dm"d4|
+w: O-lé!
+|"F"cccc f2a2|"C7"g2e2 "F"f2c2|
+w: My name it is Em-kay, Em-kay, Em-kay,
+|"Bb"dddd f2d2|"C7"c2BA "F"F4|
+w: no mat-ter what liv-ing peo-ple they say!
+|"A7"z2A2 "Dm"d4|
+w: O-lé!

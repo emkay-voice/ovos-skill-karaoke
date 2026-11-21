@@ -54,6 +54,7 @@ device says it is warming up its voice); after that it starts at once.
 |---|---|---|
 | Daisy Bell (Bicycle Built for Two) | waltz | ships with the skill |
 | Emkay's Swing | swing (big band) | ships with the skill, in 11 languages |
+| Emkay's Tango | tango | ships with the skill, in 11 languages |
 | Hey Emkay | disco | ships with the skill, in 11 languages |
 | Goodnight from Emkay | lullaby | ships with the skill |
 | Jerusalem | hymn | ships with the skill |
@@ -84,8 +85,11 @@ A song can come in several languages - `hey_emkay.kar`, `hey_emkay.da.kar`,
 ... - and they count as one song: the device sings the version in its own
 language, or English when there is none. *Hey Emkay* is in English, Danish,
 German, Spanish, French, Italian, Dutch, Portuguese, Catalan, Basque and
-Galician - the languages Emkay speaks - and so is *Emkay's Swing*, spoken
-lines included. They are singable rewrites rather than translations
+Galician - the languages Emkay speaks - and so are *Emkay's Swing* and
+*Emkay's Tango*, spoken lines included. The tango is Emkay's own story, from
+Mycroft to OpenVoiceOS, and a night in the kitchen: a tango with the robot
+vacuum, a hot date with the toaster, the hairdryer in its hair - "nobody
+talks like me!" They are singable rewrites rather than translations
 (same melody, a syllable per note); corrections from native speakers are
 very welcome.
 
