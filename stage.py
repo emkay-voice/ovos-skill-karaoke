@@ -25,7 +25,7 @@ import numpy as np
 
 from .song import Song, load
 
-VERSION = "2"   # bump when the voice changes, so old ones are made again
+VERSION = "3"   # bump when the voice changes, so old ones are made again
 SR = 24000
 
 
