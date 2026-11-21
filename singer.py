@@ -88,8 +88,13 @@ class Singer:
         self._words: dict[str, tuple[np.ndarray, int]] = {}
 
     def word(self, text: str):
+        """`text` as the voice says it - as a question. Said alone, a word
+        ends a sentence, and some voices (Alan, OpenVoiceOS' English) breathe
+        its last syllable out with hardly any tone: "Em-kay" became "Em" and
+        a whisper. Asked, the voice stays voiced to the end; the pitch is the
+        song's anyway."""
         if text not in self._words:
-            x, sr = self.speak(text)
+            x, sr = self.speak(f"{text}?")
             self._words[text] = (np.asarray(x, dtype=np.float64), int(sr))
         return self._words[text]
 
