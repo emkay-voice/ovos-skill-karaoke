@@ -81,22 +81,50 @@ def choose_key(song: Song, voice_f0: float):
     return max(-6, min(6, transpose)), octave
 
 
+def _nuclei_voiced(x: np.ndarray, sr: int, n: int) -> float:
+    """How much of the least voiced vowel (of a word's `n` syllables) has a tone."""
+    f0, hop, _ = yin_f0(x, sr)
+    if not len(f0):
+        return 1.0
+    worst = 1.0
+    for p in find_syllables(x, sr, n):
+        a, b = p.nucleus[0] // hop, max(p.nucleus[0] // hop + 1, p.nucleus[1] // hop)
+        seg = f0[a:b]
+        if len(seg):
+            worst = min(worst, float(np.mean(seg > 0)))
+    return worst
+
+
 class Singer:
     def __init__(self, speak, voice_lang: str = "en"):
         self.speak = speak                # text -> (float samples, sample rate)
         self.voice_lang = voice_lang
         self._words: dict[str, tuple[np.ndarray, int]] = {}
+        self._sung: dict[tuple[str, int], tuple[np.ndarray, int]] = {}
 
     def word(self, text: str):
-        """`text` as the voice says it - as a question. Said alone, a word
-        ends a sentence, and some voices (Alan, OpenVoiceOS' English) breathe
-        its last syllable out with hardly any tone: "Em-kay" became "Em" and
-        a whisper. Asked, the voice stays voiced to the end; the pitch is the
-        song's anyway."""
         if text not in self._words:
-            x, sr = self.speak(f"{text}?")
+            x, sr = self.speak(text)
             self._words[text] = (np.asarray(x, dtype=np.float64), int(sr))
         return self._words[text]
+
+    def sung_word(self, text: str, syllables: int):
+        """`text` to sing, its `syllables` vowels with a tone. Said alone, a
+        word ends a sentence, and some voices (Alan low, OpenVoiceOS'
+        public default) breathe its last vowel out with hardly any tone:
+        "Em-kay" was sung as "Em" and a whisper. Then the word is asked
+        once more, as a question - asked, the voice keeps its tone to the
+        end (the singer sets the pitch anyway) - and the better one sung."""
+        key = (text, syllables)
+        if key not in self._sung:
+            x, sr = self.word(text)
+            if _nuclei_voiced(x, sr, syllables) < 0.5:
+                y, ysr = self.speak(f"{text}?")
+                y = np.asarray(y, dtype=np.float64)
+                if _nuclei_voiced(y, int(ysr), syllables) > _nuclei_voiced(x, sr, syllables):
+                    x, sr = y, int(ysr)
+            self._sung[key] = (x, sr)
+        return self._sung[key]
 
     def voice_f0(self, words) -> float:
         f = []
@@ -148,7 +176,7 @@ class Singer:
             sylls = [s for s in w if s.notes]
             if not sylls:
                 continue
-            x, wsr = self.word(text)
+            x, wsr = self.sung_word(text, len(sylls))
             if wsr != sr:
                 x = np.interp(np.arange(int(len(x) * sr / wsr)) * wsr / sr, np.arange(len(x)), x)
             f0, hop, flen = yin_f0(x, sr)
