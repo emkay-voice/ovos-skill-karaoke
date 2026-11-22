@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ovos-skill-karaoke"
-version = "0.1.1"
+version = "0.1.2"
 description = "OVOS sings: songs in the device's own voice, autotuned onto the melody with a band - or karaoke for you, with words, chords and melody on the screen. Runs on the device."
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -47,5 +47,5 @@ packages = ["ovos_skill_karaoke"]
 ovos_skill_karaoke = ""
 
 [tool.setuptools.package-data]
-ovos_skill_karaoke = ["locale/**/*", "songs/*.kar", "*.png"]
+ovos_skill_karaoke = ["locale/**/*", "songs/*.kar", "*.png", "controlpanel.json"]
 
