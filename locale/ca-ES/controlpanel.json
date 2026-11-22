@@ -1,0 +1,11 @@
+{
+ "karaoke.title": "Karaoke",
+ "karaoke.intro": "D'on vénen les cançons i què mostra la pantalla mentre el dispositiu canta.",
+ "karaoke.screen": "Mentre canta",
+ "karaoke.screen.face": "La cara canta",
+ "karaoke.screen.lyrics": "Mostrar la lletra",
+ "karaoke.songbook": "Cançoner en línia",
+ "karaoke.songbook.hint": "Deixeu-lo buit per cantar només les cançons del dispositiu.",
+ "karaoke.folders": "Les vostres carpetes de cançons",
+ "karaoke.folders.hint": "Una carpeta per línia, amb els vostres fitxers .kar. Les vostres cançons van primer."
+}

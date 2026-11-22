@@ -187,6 +187,9 @@ plugin's README.
 | `song_folders` | `[]` | more folders with your own `.kar` files |
 | `sing_screen` | `face` | `face`: the face sings; `lyrics`: show the words |
 
+The settings also have a page in the [control panel](https://github.com/OpenVoiceOS/ovos-control-panel), under Music, in the languages
+the skill speaks (`controlpanel.json`).
+
 ## Install
 ```bash
 pip install ovos-skill-karaoke

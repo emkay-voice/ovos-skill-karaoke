@@ -1,0 +1,11 @@
+{
+ "karaoke.title": "Karaoke",
+ "karaoke.intro": "Hvor sangene kommer fra, og hvad skærmen viser, mens enheden synger.",
+ "karaoke.screen": "Mens den synger",
+ "karaoke.screen.face": "Ansigtet synger",
+ "karaoke.screen.lyrics": "Vis teksten",
+ "karaoke.songbook": "Online sangbog",
+ "karaoke.songbook.hint": "Lad den være tom for kun at synge sangene på enheden.",
+ "karaoke.folders": "Dine egne sangmapper",
+ "karaoke.folders.hint": "Én mappe pr. linje, med dine egne .kar-filer. Dine egne sange kommer først."
+}

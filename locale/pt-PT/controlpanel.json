@@ -1,0 +1,11 @@
+{
+ "karaoke.title": "Karaoke",
+ "karaoke.intro": "De onde vêm as canções e o que o ecrã mostra enquanto o dispositivo canta.",
+ "karaoke.screen": "Enquanto canta",
+ "karaoke.screen.face": "A cara canta",
+ "karaoke.screen.lyrics": "Mostrar a letra",
+ "karaoke.songbook": "Cancioneiro online",
+ "karaoke.songbook.hint": "Deixe vazio para cantar só as canções do dispositivo.",
+ "karaoke.folders": "As suas pastas de canções",
+ "karaoke.folders.hint": "Uma pasta por linha, com os seus ficheiros .kar. As suas canções vêm primeiro."
+}

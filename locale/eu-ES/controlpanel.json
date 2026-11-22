@@ -1,0 +1,11 @@
+{
+ "karaoke.title": "Karaokea",
+ "karaoke.intro": "Abestiak nondik datozen, eta gailuak abesten duen bitartean pantailak zer erakusten duen.",
+ "karaoke.screen": "Abesten duen bitartean",
+ "karaoke.screen.face": "Aurpegiak abesten du",
+ "karaoke.screen.lyrics": "Letra erakutsi",
+ "karaoke.songbook": "Lineako abesti-liburua",
+ "karaoke.songbook.hint": "Utzi hutsik gailuko abestiak bakarrik abesteko.",
+ "karaoke.folders": "Zure abesti-karpetak",
+ "karaoke.folders.hint": "Karpeta bat lerro bakoitzeko, zure .kar fitxategiekin. Zure abestiak lehenik."
+}

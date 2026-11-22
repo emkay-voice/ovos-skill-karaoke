@@ -1,0 +1,11 @@
+{
+ "karaoke.title": "Karaoke",
+ "karaoke.intro": "Waar de liedjes vandaan komen en wat het scherm laat zien terwijl het apparaat zingt.",
+ "karaoke.screen": "Tijdens het zingen",
+ "karaoke.screen.face": "Het gezicht zingt",
+ "karaoke.screen.lyrics": "De tekst tonen",
+ "karaoke.songbook": "Online liedboek",
+ "karaoke.songbook.hint": "Laat leeg om alleen de liedjes op het apparaat te zingen.",
+ "karaoke.folders": "Je eigen liedmappen",
+ "karaoke.folders.hint": "Eén map per regel, met je eigen .kar-bestanden. Je eigen liedjes gaan voor."
+}

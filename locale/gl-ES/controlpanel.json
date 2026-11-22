@@ -1,0 +1,11 @@
+{
+ "karaoke.title": "Karaoke",
+ "karaoke.intro": "De onde veñen as cancións e que amosa a pantalla mentres o dispositivo canta.",
+ "karaoke.screen": "Mentres canta",
+ "karaoke.screen.face": "A cara canta",
+ "karaoke.screen.lyrics": "Amosar a letra",
+ "karaoke.songbook": "Cancioneiro en liña",
+ "karaoke.songbook.hint": "Déixao baleiro para cantar só as cancións do dispositivo.",
+ "karaoke.folders": "Os teus cartafoles de cancións",
+ "karaoke.folders.hint": "Un cartafol por liña, cos teus ficheiros .kar. As túas cancións van primeiro."
+}
