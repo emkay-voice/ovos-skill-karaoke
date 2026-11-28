@@ -45,6 +45,7 @@ def skill(tmp_path, monkeypatch, speak):
         return any(w and w in (utt or "").lower() for w in words)
     s.voc_match = voc_match
     s.speak_dialog = MagicMock()
+    s.add_event = MagicMock()
     s._singer = lambda: Singer(speak, "en")
     s.initialize()
     yield s
@@ -215,3 +216,12 @@ def test_coaxed_it_sings_the_song_that_gives_in(skill, monkeypatch):
     clip = [c[0][0].data for c in skill.bus.wait_for_response.call_args_list
             if c[0][0].msg_type == "ovos.midi.clip"][-1]
     assert Path(clip["path"]).exists()
+
+
+def test_another_skill_asks_for_a_song(skill, monkeypatch):
+    started = []
+    monkeypatch.setattr(skill, "_start", lambda name, mode, **k: started.append((name, mode)))
+    handler = {c[0][0]: c[0][1] for c in skill.add_event.call_args_list}["ovos.karaoke.sing"]
+    handler(Message("ovos.karaoke.sing", {"song": "daisy bell"}))
+    handler(Message("ovos.karaoke.sing", {"mode": "karaoke"}))
+    assert started == [("daisy bell", "sing"), ("", "karaoke")]

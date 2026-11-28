@@ -153,6 +153,12 @@ singing *Daisy Bell* is charming rather than correct.
   the face - Emkay does. With `sing_screen` set to `lyrics` the words are
   shown as in karaoke instead.
 
+## From another skill
+
+`ovos.karaoke.sing` with `song` (a title, or nothing for one of its own
+choosing) and `mode` (`sing`, the default, or `karaoke`) starts a song as if
+it had been asked for – a block in Emkay Blocks uses it.
+
 ## The band
 
 The band is [ovos-phal-plugin-midi](https://github.com/emkay-voice/ovos-phal-plugin-midi).
