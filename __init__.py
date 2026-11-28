@@ -64,6 +64,8 @@ class KaraokeSkill(OVOSSkill):
         self.settings.setdefault("song_folders", [])
         self.settings.setdefault("sing_screen", "face")    # or "lyrics"
         (self.own_folder).mkdir(parents=True, exist_ok=True)
+        # another skill asks for a song (a block in Emkay Blocks): as "sing <song>"
+        self.add_event("ovos.karaoke.sing", self.handle_bus_sing)
 
     # ------------------------------------------------------------ songs
     @property
@@ -132,6 +134,12 @@ class KaraokeSkill(OVOSSkill):
                 return
             self.speak_dialog("okay_then", wait=True)
         self._start("", "sing")
+
+    def handle_bus_sing(self, message):
+        """ovos.karaoke.sing {song, mode}: a song by name ("" for one of its own choosing),
+        sung ("sing", the default) or as karaoke, as if it had been asked for."""
+        mode = "karaoke" if message.data.get("mode") == "karaoke" else "sing"
+        self._start(str(message.data.get("song") or ""), mode)
 
     @intent_handler("karaoke.intent")
     def handle_karaoke(self, message):
